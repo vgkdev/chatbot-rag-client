@@ -18,6 +18,7 @@ import {
   PersonAdd,
   Settings,
 } from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
 
 const drawerWidth = 240;
 
@@ -36,6 +37,8 @@ const CustomAppBar = styled(MuiAppBar, {
 
 export const AppBar = ({ open, handleDrawerOpen }) => {
   const [anchorEl, setAnchorEl] = React.useState(null);
+
+  const navigate = useNavigate();
 
   const openMenu = Boolean(anchorEl);
   const handleClick = (event) => {
@@ -92,6 +95,8 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
               paper: {
                 elevation: 0,
                 sx: {
+                  //   border: "1px solid red",
+                  width: "15%",
                   overflow: "visible",
                   filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
                   mt: 1.5,
@@ -122,17 +127,15 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
             <MenuItem onClick={handleClose}>
               <Avatar /> Profile
             </MenuItem>
-            <MenuItem onClick={handleClose}>
-              <Avatar /> My account
-            </MenuItem>
+
             <Divider />
-            <MenuItem onClick={handleClose}>
-              <ListItemIcon>
-                <PersonAdd fontSize="small" />
-              </ListItemIcon>
-              Add another account
-            </MenuItem>
-            <MenuItem onClick={handleClose}>
+
+            <MenuItem
+              onClick={() => {
+                navigate("/settings");
+                handleClose();
+              }}
+            >
               <ListItemIcon>
                 <Settings fontSize="small" />
               </ListItemIcon>
