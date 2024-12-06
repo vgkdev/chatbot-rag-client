@@ -7,6 +7,8 @@ import {
 } from "react-router-dom";
 import HomePage from "../Pages/HomePage";
 import { Settings } from "../Pages/Settings";
+import { RegisterPage } from "../Pages/RegisterPage";
+import { LoginPage } from "../Pages/LoginPage";
 
 const AllRoutes = () => {
   //   const user = useSelector((state) => state.user.user);
@@ -31,6 +33,8 @@ const AllRoutes = () => {
             <Route path="/" element={<Navigate to="/homepage" />} />
             <Route path="/homepage" element={<HomePage />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/login" element={<LoginPage />} />
           </Routes>
         </Box>
         {/* <Box sx={{ flexShrink: 0 }}>

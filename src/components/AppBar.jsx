@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useContext } from "react";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import MuiAppBar from "@mui/material/AppBar";
 import ListIcon from "@mui/icons-material/List";
+import LoginIcon from "@mui/icons-material/Login";
+import PersonAddAltIcon from "@mui/icons-material/PersonAddAlt";
 import { styled } from "@mui/material/styles";
 import {
   Avatar,
@@ -19,6 +21,7 @@ import {
   Settings,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import { UserContext } from "../context/UserContext";
 
 const drawerWidth = 240;
 
@@ -36,6 +39,8 @@ const CustomAppBar = styled(MuiAppBar, {
 }));
 
 export const AppBar = ({ open, handleDrawerOpen }) => {
+  const { user, setUser } = useContext(UserContext);
+
   const [anchorEl, setAnchorEl] = React.useState(null);
 
   const navigate = useNavigate();
@@ -46,6 +51,12 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
   };
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    setUser(null);
+    handleClose();
   };
 
   return (
@@ -124,29 +135,59 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
             transformOrigin={{ horizontal: "right", vertical: "top" }}
             anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
           >
-            <MenuItem onClick={handleClose}>
-              <Avatar /> Profile
-            </MenuItem>
+            {user ? (
+              <div>
+                <MenuItem onClick={handleClose}>
+                  <Avatar />
+                  <Typography sx={{ ml: "5px" }}>{user.userName}</Typography>
+                </MenuItem>
 
-            <Divider />
+                <Divider />
 
-            <MenuItem
-              onClick={() => {
-                navigate("/settings");
-                handleClose();
-              }}
-            >
-              <ListItemIcon>
-                <Settings fontSize="small" />
-              </ListItemIcon>
-              Settings
-            </MenuItem>
-            <MenuItem onClick={handleClose}>
-              <ListItemIcon>
-                <Logout fontSize="small" />
-              </ListItemIcon>
-              Logout
-            </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    navigate("/settings");
+                    handleClose();
+                  }}
+                >
+                  <ListItemIcon>
+                    <Settings fontSize="small" />
+                  </ListItemIcon>
+                  Settings
+                </MenuItem>
+                <MenuItem onClick={handleLogout}>
+                  <ListItemIcon>
+                    <Logout fontSize="small" />
+                  </ListItemIcon>
+                  Logout
+                </MenuItem>
+              </div>
+            ) : (
+              <div>
+                <MenuItem
+                  onClick={() => {
+                    navigate("/login");
+                    handleClose();
+                  }}
+                >
+                  <ListItemIcon>
+                    <LoginIcon fontSize="small" />
+                  </ListItemIcon>
+                  Login
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    navigate("/register");
+                    handleClose();
+                  }}
+                >
+                  <ListItemIcon>
+                    <PersonAddAltIcon fontSize="small" />
+                  </ListItemIcon>
+                  Register
+                </MenuItem>
+              </div>
+            )}
           </Menu>
         </>
       </Toolbar>

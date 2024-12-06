@@ -9,6 +9,7 @@ import {
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import React, { useState } from "react";
+import UserList from "./UserList";
 
 export const ResourcesTab = () => {
   const [resourceTabValue, setResourceTabValue] = useState(0);
@@ -142,6 +143,8 @@ export const ResourcesTab = () => {
           </Button>
         </Box>
       )}
+
+      {resourceTabValue === 4 && <UserList />}
     </Box>
   );
 };
