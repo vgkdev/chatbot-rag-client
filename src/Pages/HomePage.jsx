@@ -10,11 +10,13 @@ import IconButton from "@mui/material/IconButton";
 import ListIcon from "@mui/icons-material/List";
 import EditNoteOutlinedIcon from "@mui/icons-material/EditNoteOutlined";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
+import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import {
   Avatar,
   InputBase,
   List,
   ListItem,
+  ListItemIcon,
   ListItemText,
   Typography,
 } from "@mui/material";
@@ -24,13 +26,16 @@ import { pdfjs } from "react-pdf";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import ReactMarkdown from "react-markdown";
 import SmartToyOutlinedIcon from "@mui/icons-material/SmartToyOutlined";
+import ThinkingAnimation from "../components/ThinkingAnimation";
+import TypingText from "../components/TypingText";
 
 const drawerWidth = 240;
 const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
 
 // console.log(">>>check apiKey: ", apiKey);
 const model = new ChatGoogleGenerativeAI({
-  model: "gemini-1.5-pro",
+  // model: "gemini-1.5-pro",
+  model: "gemini-1.5-flash",
   temperature: 0,
   maxRetries: 2,
   apiKey: apiKey,
@@ -65,6 +70,7 @@ export default function HomePage() {
   const [context, setContext] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]); // Lưu danh sách file đã upload
+  const [isThinking, setIsThinking] = useState(false);
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -80,6 +86,7 @@ export default function HomePage() {
 
     const userMessage = { role: "user", content: message };
     setChatHistory((prev) => [...prev, userMessage]);
+    setIsThinking(true);
 
     try {
       const response = await model.invoke([
@@ -99,6 +106,8 @@ export default function HomePage() {
       setChatHistory((prev) => [...prev, aiMessage]);
     } catch (error) {
       console.error("Error in sendMessage:", error);
+    } finally {
+      setIsThinking(false);
     }
     // // Lấy kết quả trả về từ Gemini API
     // console.log(">>>check response: ", response);
@@ -249,6 +258,8 @@ export default function HomePage() {
                     >
                       <SmartToyOutlinedIcon />
                     </Avatar>
+
+                    {/* Bot trả lời */}
                     <Box
                       sx={{
                         display: "flex",
@@ -257,7 +268,7 @@ export default function HomePage() {
                         wordWrap: "break-word",
                       }}
                     >
-                      <ReactMarkdown
+                      {/* <ReactMarkdown
                         components={{
                           p: ({ node, ...props }) => (
                             <p
@@ -289,7 +300,8 @@ export default function HomePage() {
                         }}
                       >
                         {chat.content}
-                      </ReactMarkdown>
+                      </ReactMarkdown> */}
+                      <TypingText text={chat.content} />
                     </Box>
                   </Box>
                 ) : (
@@ -298,6 +310,29 @@ export default function HomePage() {
               </Box>
             </Box>
           ))}
+
+          {isThinking && (
+            <Box
+              sx={{
+                // border: "1px solid red",
+                display: "flex",
+                gap: "25px",
+                alignItems: "center",
+              }}
+            >
+              <Avatar
+                sx={{
+                  width: 35,
+                  height: 35,
+                  background: "linear-gradient(45deg, #142ccb, #124acd)",
+                  color: "#ffffff",
+                }}
+              >
+                <SmartToyOutlinedIcon />
+              </Avatar>
+              <ThinkingAnimation />
+            </Box>
+          )}
         </Box>
 
         <Box
@@ -320,18 +355,45 @@ export default function HomePage() {
               display: "flex",
               flexDirection: "row",
               flexGrow: 1,
-              overflowY: "auto",
+              overflowX: "auto", // Kích hoạt cuộn ngang
               px: 2,
             }}
           >
-            <List>
+            <List
+              sx={{
+                display: "flex", // Hiển thị ngang
+                flexDirection: "row",
+                gap: 2, // Khoảng cách giữa các file
+                py: 1, // Khoảng cách padding trên và dưới
+              }}
+            >
               {uploadedFiles.map((fileName, index) => (
-                <ListItem key={index} sx={{ pl: 0 }}>
-                  <ListItemText primary={fileName} />
+                <ListItem
+                  key={index}
+                  sx={{
+                    display: "inline-flex", // Hiển thị mỗi item như một mục ngang
+                    width: "auto", // Không bị cố định chiều rộng
+                    whiteSpace: "nowrap", // Tránh xuống dòng nếu tên file dài
+                    border: "1px solid #444",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <ListItemIcon>
+                    <PictureAsPdfOutlinedIcon />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={fileName}
+                    sx={{
+                      textAlign: "center", // Căn giữa nội dung
+                      overflow: "hidden", // Giới hạn hiển thị nếu tên quá dài
+                      textOverflow: "ellipsis", // Hiển thị "..." nếu quá dài
+                    }}
+                  />
                 </ListItem>
               ))}
             </List>
           </Box>
+
           {/* Attachment Icon */}
           <Box sx={{ display: "flex", alignItems: "center" }}>
             <IconButton component="label" sx={{ color: "white" }}>
