@@ -75,14 +75,14 @@ export const RegisterPage = () => {
         console.log(">>>check user: ", user);
 
         setUser({
-          id: user.uid,
+          userId: user.uid,
           userName: username,
           email: user.email,
         });
         localStorage.setItem(
           "user",
           JSON.stringify({
-            id: user.uid,
+            userId: user.uid,
             userName: username,
             email: user.email,
           })

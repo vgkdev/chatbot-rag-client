@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { styled, useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
@@ -28,9 +28,18 @@ import ReactMarkdown from "react-markdown";
 import SmartToyOutlinedIcon from "@mui/icons-material/SmartToyOutlined";
 import ThinkingAnimation from "../components/ThinkingAnimation";
 import TypingText from "../components/TypingText";
+import { useContext } from "react";
+import { UserContext } from "../context/UserContext";
+import {
+  loadChatsFromFirebase,
+  saveChatToFirebase,
+} from "../servers/firebaseUtils";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../configs/firebase";
 
 const drawerWidth = 240;
 const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+const MAX_HISTORY_LENGTH = 10;
 
 // console.log(">>>check apiKey: ", apiKey);
 const model = new ChatGoogleGenerativeAI({
@@ -64,6 +73,9 @@ const DrawerHeader = styled("div")(({ theme }) => ({
 }));
 
 export default function HomePage() {
+  const { user, setUser } = useContext(UserContext);
+  const chatEndRef = useRef(null);
+
   const theme = useTheme();
   const [open, setOpen] = useState(true);
   const [message, setMessage] = useState("");
@@ -71,6 +83,29 @@ export default function HomePage() {
   const [chatHistory, setChatHistory] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]); // Lưu danh sách file đã upload
   const [isThinking, setIsThinking] = useState(false);
+  const [latestBotMessageIndex, setLatestBotMessageIndex] = useState(-1);
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [chats, setChats] = useState([]);
+  const [isNewBotMessage, setIsNewBotMessage] = useState(false);
+
+  // console.log(">>>check user: ", user);
+
+  useEffect(() => {
+    const fetchChats = async () => {
+      if (user) {
+        const loadedChats = await loadChatsFromFirebase(user.userId);
+        setChats(loadedChats);
+      }
+    };
+    fetchChats();
+  }, [user]);
+
+  useEffect(() => {
+    // Khi load chat, scroll xuống cuối
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatHistory]);
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -85,25 +120,62 @@ export default function HomePage() {
     if (!message.trim()) return;
 
     const userMessage = { role: "user", content: message };
-    setChatHistory((prev) => [...prev, userMessage]);
+    const newChatHistory = [...chatHistory, userMessage]; // Tạo một bản sao mới của chatHistory
+
+    // Giới hạn lịch sử trò chuyện
+    if (newChatHistory.length > MAX_HISTORY_LENGTH) {
+      newChatHistory.slice(-MAX_HISTORY_LENGTH);
+    }
+
+    setChatHistory(newChatHistory); // Cập nhật chatHistory
     setIsThinking(true);
 
     try {
-      const response = await model.invoke([
+      const messages = [
         {
           role: "system",
           content: `Dữ liệu: \n${context}
           You are a chatbot that supports clear, detailed answers and presents them in Markdown and with line breaks when there are titles for error-free conversion. When users ask short or unclear questions, provide comprehensive answers with specific titles and explanations. Avoid guessing but cover every possible aspect relevant to the question.
           `,
         },
+        ...newChatHistory,
+        // ...chatHistory,
         {
           role: "user",
           content: message,
         },
-      ]);
+      ];
+
+      const response = await model.invoke(messages);
 
       const aiMessage = { role: "assistant", content: response.text };
-      setChatHistory((prev) => [...prev, aiMessage]);
+      const updatedChatHistory = [...newChatHistory, aiMessage]; // Thêm tin nhắn của bot vào lịch sử
+
+      // Giới hạn lịch sử trò chuyện
+      if (updatedChatHistory.length > MAX_HISTORY_LENGTH) {
+        updatedChatHistory.slice(-MAX_HISTORY_LENGTH);
+      }
+
+      setChatHistory(updatedChatHistory); // Cập nhật chatHistory
+      setLatestBotMessageIndex(updatedChatHistory.length - 1); // Sử dụng updatedChatHistory để cập nhật latestBotMessageIndex
+      setIsNewBotMessage(true); // Đánh dấu tin nhắn mới từ bot
+      // console.log(">>>check length: ", chatHistory.length);
+
+      // Lưu lịch sử chat vào Firebase
+      const chatId = activeChatId || `chat_${new Date().getTime()}`; // Tạo một chatId duy nhất
+      const title = `Chat ${new Date().toLocaleString()}`; // Tạo tiêu đề cho cuộc trò chuyện
+
+      await saveChatToFirebase(
+        user.userId,
+        chatId,
+        updatedChatHistory,
+        context,
+        title
+      );
+      // Nếu không có activeChatId, đặt chatId hiện tại làm activeChatId
+      if (!activeChatId) {
+        setActiveChatId(chatId);
+      }
     } catch (error) {
       console.error("Error in sendMessage:", error);
     } finally {
@@ -112,6 +184,33 @@ export default function HomePage() {
     // // Lấy kết quả trả về từ Gemini API
     // console.log(">>>check response: ", response);
     console.log(">>>check message: ", message);
+  };
+
+  const loadChat = async (chatId) => {
+    try {
+      const chatRef = doc(db, "users", user.userId, "chats", chatId);
+      const chatDoc = await getDoc(chatRef);
+      if (chatDoc.exists()) {
+        const chatData = chatDoc.data();
+        setChatHistory(chatData.chatHistory);
+        setContext(chatData.context);
+        setLatestBotMessageIndex(chatData.chatHistory.length - 1);
+        setActiveChatId(chatId); // Đặt activeChatId
+        setIsNewBotMessage(false); // Đánh dấu không phải tin nhắn mới từ bot
+      } else {
+        console.log("No such chat!");
+      }
+    } catch (error) {
+      console.error("Error loading chat:", error);
+    }
+  };
+
+  const handleClickNewChat = () => {
+    setChatHistory([]);
+    setContext("");
+    setLatestBotMessageIndex(-1);
+    setActiveChatId(null);
+    setIsNewBotMessage(false);
   };
 
   const handleFileUpload = async (event) => {
@@ -192,11 +291,23 @@ export default function HomePage() {
           <IconButton onClick={handleDrawerClose}>
             <ListIcon />
           </IconButton>
-          <IconButton>
+          <IconButton onClick={handleClickNewChat}>
             <EditNoteOutlinedIcon />
           </IconButton>
         </DrawerHeader>
         <Divider />
+        <List>
+          {chats.map((chat) => (
+            <ListItem
+              sx={{ cursor: "pointer" }}
+              button="true"
+              key={chat.id}
+              onClick={() => loadChat(chat.id)}
+            >
+              <ListItemText primary={chat.title} />
+            </ListItem>
+          ))}
+        </List>
       </Drawer>
 
       <Main
@@ -301,7 +412,44 @@ export default function HomePage() {
                       >
                         {chat.content}
                       </ReactMarkdown> */}
-                      <TypingText text={chat.content} />
+                      {/* <TypingText text={chat.content} /> */}
+                      {isNewBotMessage && index === latestBotMessageIndex ? (
+                        <TypingText text={chat.content} />
+                      ) : (
+                        <ReactMarkdown
+                          components={{
+                            p: ({ node, ...props }) => (
+                              <p
+                                {...props}
+                                style={{
+                                  marginBottom: "4px",
+                                  lineHeight: "1.4",
+                                }}
+                              />
+                            ),
+                            h1: ({ node, ...props }) => (
+                              <h1
+                                {...props}
+                                style={{
+                                  marginBottom: "24px",
+                                  lineHeight: "1.2",
+                                }}
+                              />
+                            ),
+                            h2: ({ node, ...props }) => (
+                              <h2
+                                {...props}
+                                style={{
+                                  marginBottom: "20px",
+                                  lineHeight: "1.2",
+                                }}
+                              />
+                            ),
+                          }}
+                        >
+                          {chat.content}
+                        </ReactMarkdown>
+                      )}
                     </Box>
                   </Box>
                 ) : (
@@ -310,7 +458,6 @@ export default function HomePage() {
               </Box>
             </Box>
           ))}
-
           {isThinking && (
             <Box
               sx={{
@@ -333,6 +480,7 @@ export default function HomePage() {
               <ThinkingAnimation />
             </Box>
           )}
+          <div ref={chatEndRef} /> {/* Đây là phần tự động cuộn xuống */}
         </Box>
 
         <Box

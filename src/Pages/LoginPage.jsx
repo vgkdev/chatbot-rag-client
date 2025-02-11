@@ -68,7 +68,7 @@ export const LoginPage = () => {
         const userData = docSnap.data();
 
         setUser({
-          id: userData.userId,
+          userId: userData.userId,
           email: userData.email,
           userName: userData.userName,
         });
