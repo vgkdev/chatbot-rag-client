@@ -1,4 +1,11 @@
-import { addDoc, collection, doc, setDoc, getDocs } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  setDoc,
+  getDocs,
+  getDoc,
+} from "firebase/firestore";
 import { db } from "../configs/firebase";
 
 export const saveChatToFirebase = async (
@@ -41,5 +48,23 @@ export const loadChatsFromFirebase = async (userId) => {
   } catch (error) {
     console.error("Error loading chats from Firebase:", error);
     return [];
+  }
+};
+
+export const fetchKnowledgeBase = async () => {
+  try {
+    const docRef = doc(db, "data", "knowledgeBase");
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const knowledgeBaseData = docSnap.data();
+      return knowledgeBaseData.data; // Giả sử dữ liệu được lưu trong trường `content`
+    } else {
+      console.log("No knowledge base found!");
+      return "";
+    }
+  } catch (error) {
+    console.error("Error fetching knowledge base:", error);
+    return "";
   }
 };

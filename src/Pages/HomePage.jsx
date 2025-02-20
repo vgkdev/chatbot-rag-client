@@ -31,6 +31,7 @@ import TypingText from "../components/TypingText";
 import { useContext } from "react";
 import { UserContext } from "../context/UserContext";
 import {
+  fetchKnowledgeBase,
   loadChatsFromFirebase,
   saveChatToFirebase,
 } from "../servers/firebaseUtils";
@@ -87,6 +88,7 @@ export default function HomePage() {
   const [activeChatId, setActiveChatId] = useState(null);
   const [chats, setChats] = useState([]);
   const [isNewBotMessage, setIsNewBotMessage] = useState(false);
+  const [knowledgeBaseContent, setKnowledgeBaseContent] = useState("");
 
   // console.log(">>>check user: ", user);
 
@@ -106,6 +108,15 @@ export default function HomePage() {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [chatHistory]);
+
+  useEffect(() => {
+    const fetchKnowledgeBaseContent = async () => {
+      const knowledgeBaseContent = await fetchKnowledgeBase();
+      setKnowledgeBaseContent(knowledgeBaseContent);
+      // console.log(">>>check knowledge base: ", knowledgeBaseContent);
+    };
+    fetchKnowledgeBaseContent();
+  }, []);
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -134,15 +145,29 @@ export default function HomePage() {
       const messages = [
         {
           role: "system",
-          content: `Dữ liệu: \n${context}
-          You are a chatbot that supports clear, detailed answers and presents them in Markdown and with line breaks when there are titles for error-free conversion. When users ask short or unclear questions, provide comprehensive answers with specific titles and explanations. Avoid guessing but cover every possible aspect relevant to the question.
+          content: `
+          Bạn là trợ lý AI chuyên hỗ trợ sinh viên đại học,
+          chi tiết và trình bày chúng trong Markdown và ngắt dòng khi
+          có tiêu đề để chuyển đổi không có lỗi. Khi người dùng đặt
+          câu hỏi ngắn hoặc không rõ ràng, hãy cung cấp câu trả lời
+          toàn diện với tiêu đề và giải thích cụ thể. Tránh đoán mò
+          nhưng hãy đề cập đến mọi khía cạnh có thể liên quan đến câu hỏi. 
+          1. File người dùng tải lên chứa tài liệu học sau đây: \n${context}
+          2. Firebase có dữ liệu về giáo trình và bài giảng chính thức từ trường đại học: \n${knowledgeBaseContent}
           `,
         },
         ...newChatHistory,
         // ...chatHistory,
         {
           role: "user",
-          content: message,
+          content: `
+          Trả lời bằng cách:  
+          1. Ưu tiên nội dung từ file tải lên nếu có thông tin phù hợp.  
+          2. Sử dụng dữ liệu Firebase nếu cần làm rõ khái niệm chung.  
+          3. Không tự suy đoán nếu không có thông tin chính xác.
+          4. Nếu không biết về thông tin đó thì trả lời: "Xin lỗi, tôi chưa có thông tin."
+          ${message}
+          `,
         },
       ];
 
