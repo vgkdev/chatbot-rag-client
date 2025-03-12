@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Box,
   Button,
@@ -16,6 +16,11 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { styled } from "@mui/material/styles";
 import { DataGrid } from "@mui/x-data-grid";
 import FolderIcon from "@mui/icons-material/Folder";
+import {
+  getFilesFromFirebase,
+  uploadFileToFirebase,
+  uploadMultipleFilesToFirebase,
+} from "../servers/firebaseUtils";
 
 const FileUploadContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -31,28 +36,86 @@ const FileUploadContainer = styled(Paper)(({ theme }) => ({
 
 export const FilesTab = () => {
   const [subTabValue, setSubTabValue] = useState(0);
+  const [files, setFiles] = useState([]);
+  const fileInputRef = useRef(null);
+  const [fileList, setFileList] = useState([]);
+
+  useEffect(() => {
+    fetchFiles(); // Lấy danh sách file khi component được mount
+  }, []);
+
   const handleSubTabChange = (event, newValue) => {
     setSubTabValue(newValue);
   };
 
+  const handleFileChange = (event) => {
+    const selectedFiles = Array.from(event.target.files);
+    setFiles(selectedFiles);
+    // Handle file upload logic here
+    uploadFiles(selectedFiles);
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    const droppedFiles = Array.from(event.dataTransfer.files);
+    setFiles(droppedFiles);
+    // Handle file upload logic here
+    uploadFiles(droppedFiles);
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current.click();
+  };
+
+  const uploadFiles = async (files) => {
+    try {
+      const fileUrls = await uploadMultipleFilesToFirebase(files); // Sử dụng hàm từ firebaseUtils
+      console.log("Files uploaded successfully. URLs:", fileUrls);
+      // Bạn có thể lưu các URL này vào Firestore hoặc thực hiện các hành động khác
+    } catch (error) {
+      console.error("Error uploading files:", error);
+    }
+  };
+
+  const fetchFiles = async () => {
+    try {
+      const files = await getFilesFromFirebase(); // Lấy danh sách file từ Firebase
+      setFileList(files); // Cập nhật state
+    } catch (error) {
+      console.error("Error fetching files:", error);
+    }
+  };
+
   const columns = [
-    { field: "name", headerName: "Name", width: 150 },
-    { field: "size", headerName: "Size", width: 100 },
-    { field: "token", headerName: "Token Loader", width: 130 },
-    { field: "created", headerName: "Date Created", width: 150 },
+    { field: "stt", headerName: "STT", width: 80 }, // Cột STT
+    { field: "name", headerName: "Tên file", width: 400 }, // Cột Tên file
+    { field: "size", headerName: "Kích thước", width: 120 }, // Cột Kích thước
+    { field: "createdAt", headerName: "Ngày tải lên", width: 150 }, // Cột Ngày tải lên
   ];
-  const rows = [];
+
+  const rows = fileList.map((file) => ({
+    id: file.stt, // Sử dụng STT làm ID duy nhất
+    stt: file.stt, // STT
+    name: file.name, // Tên file
+    size: file.size, // Kích thước
+    createdAt: file.createdAt, // Ngày tải lên
+  }));
+
   return (
     <Box sx={{ padding: 2 }}>
       {/* Sub Tabs */}
-      <Tabs
+      {/* <Tabs
         value={subTabValue}
         onChange={handleSubTabChange}
         textColor="inherit"
       >
         <Tab label="File Collection" />
         <Tab label="GraphRAG Collection" />
-      </Tabs>
+      </Tabs> */}
 
       <Divider sx={{ mt: 2, mb: 3, bgcolor: "gray" }} />
 
@@ -60,22 +123,35 @@ export const FilesTab = () => {
       <Box display="flex" gap={3}>
         {/* File Upload Section */}
         <Box width="30%">
-          <FileUploadContainer>
+          <FileUploadContainer
+            onClick={handleUploadClick}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            sx={{ cursor: "pointer" }}
+          >
             <CloudUploadIcon fontSize="large" />
             <Typography variant="body1" sx={{ mt: 2, mb: 2 }}>
               Drop File Here <br /> - or - <br /> Click to Upload
             </Typography>
             <Typography variant="caption" color="gray">
-              Supported file types: .png, .jpeg, .jpg, .tiff, .pdf, .xls, .doc,
-              .html, .txt, etc.
+              Supported file types: .pdf .docx.
             </Typography>
             <Typography variant="caption" color="gray">
               Maximum file size: 1000 MB
             </Typography>
           </FileUploadContainer>
 
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={handleFileChange}
+            multiple
+          />
+
           {/* Advanced Options */}
-          <Typography variant="body2" color="white" sx={{ mb: 1 }}>
+          {/* <Typography variant="body2" color="white" sx={{ mb: 1 }}>
             Advanced indexing options
           </Typography>
           <FormControlLabel
@@ -86,27 +162,28 @@ export const FilesTab = () => {
               </Typography>
             }
             sx={{ ml: 1 }}
-          />
+          /> */}
 
           {/* Upload Button */}
-          <Button
+          {/* <Button
             variant="contained"
             color="secondary"
             fullWidth
             sx={{ mt: 2, bgcolor: "#00C853", color: "black" }}
+            onClick={handleUploadClick}
           >
             Upload and Index
-          </Button>
+          </Button> */}
         </Box>
 
         {/* File List Section */}
         <Box width="70%">
-          <Typography variant="h6" sx={{ color: "white", mb: 2 }}>
+          {/* <Typography variant="h6" sx={{ color: "white", mb: 2 }}>
             File List
-          </Typography>
+          </Typography> */}
 
           {/* Filter Input */}
-          <TextField
+          {/* <TextField
             placeholder="Filter by name"
             fullWidth
             variant="outlined"
@@ -124,7 +201,7 @@ export const FilesTab = () => {
                 color: "#b3b3b3",
               },
             }}
-          />
+          /> */}
 
           {/* File List DataGrid */}
           <Box sx={{ height: 300, width: "100%", backgroundColor: "#1e1e1e" }}>
@@ -150,7 +227,7 @@ export const FilesTab = () => {
           </Box>
 
           {/* Selected file info and advanced options */}
-          <Box mt={2}>
+          {/* <Box mt={2}>
             <Typography variant="body2" color="white" sx={{ mb: 1 }}>
               Selected file: (please select above)
             </Typography>
@@ -179,7 +256,7 @@ export const FilesTab = () => {
                 ),
               }}
             />
-          </Box>
+          </Box> */}
         </Box>
       </Box>
     </Box>
