@@ -12,8 +12,10 @@ import {
   getDownloadURL,
   listAll,
   getMetadata,
+  deleteObject,
 } from "firebase/storage";
 import { db, storage } from "../configs/firebase";
+import readPdfFile from "../utils/readPdfFile";
 
 export const saveChatToFirebase = async (
   userId,
@@ -136,12 +138,20 @@ export const getFilesFromFirebase = async (folderPath = "uploads") => {
       fileList.items.map(async (item, index) => {
         const url = await getDownloadURL(item); // Lấy URL của file
         const metadata = await getMetadata(item); // Lấy metadata của file
+
+        // Kiểm tra nếu file là PDF thì đọc nội dung text
+        let textContent = "";
+        if (item.name.endsWith(".pdf")) {
+          // console.log(">>>check url: ", url);
+          textContent = await readPdfFile(url); // Đọc nội dung text từ file PDF
+        }
         return {
           stt: index + 1, // STT (số thứ tự)
           name: item.name, // Tên file
           size: `${(metadata.size / 1024).toFixed(2)} KB`, // Kích thước file (chuyển sang KB)
           createdAt: new Date(metadata.timeCreated).toLocaleDateString(), // Ngày tải lên
           url, // URL của file
+          textContent, // Nội dung text (nếu là PDF)
         };
       })
     );
@@ -149,6 +159,28 @@ export const getFilesFromFirebase = async (folderPath = "uploads") => {
     return filesWithDetails;
   } catch (error) {
     console.error("Error fetching files from Firebase:", error);
+    throw error; // Ném lỗi để xử lý ở nơi gọi hàm
+  }
+};
+
+/**
+ * Xóa file từ Firebase Storage
+ * @param {Object} file - File object chứa thông tin file cần xóa
+ * @param {string} folderPath - Đường dẫn thư mục trong Firebase Storage (mặc định: "uploads")
+ * @returns {Promise<boolean>} - Trả về true nếu xóa thành công
+ */
+export const deleteFileFromFirebase = async (file, folderPath = "uploads") => {
+  try {
+    // Tạo reference tới file cần xóa
+    const fileRef = ref(storage, `${folderPath}/${file.name}`);
+
+    // Thực hiện xóa file
+    await deleteObject(fileRef);
+
+    console.log(`File ${file.name} deleted successfully`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting file ${file.name}:`, error);
     throw error; // Ném lỗi để xử lý ở nơi gọi hàm
   }
 };

@@ -16,7 +16,10 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { styled } from "@mui/material/styles";
 import { DataGrid } from "@mui/x-data-grid";
 import FolderIcon from "@mui/icons-material/Folder";
+import DeleteIcon from "@mui/icons-material/Delete"; // Thêm icon xóa
+
 import {
+  deleteFileFromFirebase,
   getFilesFromFirebase,
   uploadFileToFirebase,
   uploadMultipleFilesToFirebase,
@@ -84,9 +87,32 @@ export const FilesTab = () => {
   const fetchFiles = async () => {
     try {
       const files = await getFilesFromFirebase(); // Lấy danh sách file từ Firebase
+      console.log(">>>check files: ", files);
       setFileList(files); // Cập nhật state
     } catch (error) {
       console.error("Error fetching files:", error);
+    }
+  };
+
+  // Hàm xử lý xóa file
+  const handleDeleteFile = async (fileId) => {
+    try {
+      // Tìm file cần xóa trong danh sách
+      const fileToDelete = fileList.find((file) => file.stt === fileId);
+
+      if (fileToDelete) {
+        // Gọi hàm xóa file từ Firebase
+        await deleteFileFromFirebase({
+          name: fileToDelete.name, // Tên file (bắt buộc)
+          // Có thể thêm các trường khác nếu hàm deleteFileFromFirebase cần
+        });
+
+        // Cập nhật lại danh sách file sau khi xóa
+        setFileList(fileList.filter((file) => file.stt !== fileId));
+        console.log("File deleted successfully");
+      }
+    } catch (error) {
+      console.error("Error deleting file:", error);
     }
   };
 
@@ -95,6 +121,23 @@ export const FilesTab = () => {
     { field: "name", headerName: "Tên file", width: 400 }, // Cột Tên file
     { field: "size", headerName: "Kích thước", width: 120 }, // Cột Kích thước
     { field: "createdAt", headerName: "Ngày tải lên", width: 150 }, // Cột Ngày tải lên
+    {
+      field: "actions",
+      headerName: "Thao tác",
+      width: 100,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      renderCell: (params) => (
+        <IconButton
+          onClick={() => handleDeleteFile(params.row.stt)}
+          color="error"
+          size="small"
+        >
+          <DeleteIcon />
+        </IconButton>
+      ),
+    },
   ];
 
   const rows = fileList.map((file) => ({
@@ -210,6 +253,7 @@ export const FilesTab = () => {
               columns={columns}
               pageSize={5}
               disableSelectionOnClick
+              hideFooterSelectedRowCount
               sx={{
                 "& .MuiDataGrid-cell": {
                   color: "white",
