@@ -40,6 +40,7 @@ const CustomAppBar = styled(MuiAppBar, {
 
 export const AppBar = ({ open, handleDrawerOpen }) => {
   const { user, setUser } = useContext(UserContext);
+  // console.log(">>>check user: ", user);
 
   const [anchorEl, setAnchorEl] = React.useState(null);
 
@@ -144,17 +145,19 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
 
                 <Divider />
 
-                <MenuItem
-                  onClick={() => {
-                    navigate("/settings");
-                    handleClose();
-                  }}
-                >
-                  <ListItemIcon>
-                    <Settings fontSize="small" />
-                  </ListItemIcon>
-                  Settings
-                </MenuItem>
+                {user.role === 1 && (
+                  <MenuItem
+                    onClick={() => {
+                      navigate("/settings");
+                      handleClose();
+                    }}
+                  >
+                    <ListItemIcon>
+                      <Settings fontSize="small" />
+                    </ListItemIcon>
+                    Settings
+                  </MenuItem>
+                )}
                 <MenuItem onClick={handleLogout}>
                   <ListItemIcon>
                     <Logout fontSize="small" />

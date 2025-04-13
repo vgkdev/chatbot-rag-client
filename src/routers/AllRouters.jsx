@@ -9,12 +9,25 @@ import HomePage from "../Pages/HomePage";
 import { Settings } from "../Pages/Settings";
 import { RegisterPage } from "../Pages/RegisterPage";
 import { LoginPage } from "../Pages/LoginPage";
+import { useContext } from "react";
+import { UserContext } from "../context/UserContext";
+import { UnauthorizedPage } from "../Pages/UnauthorizedPage";
 
 const AllRoutes = () => {
-  //   const user = useSelector((state) => state.user.user);
-  //   console.log(">>>check user: ", user);
-  //   const isStaffOrAdmin = user ? user.isStaff || user.isManager : false;
-  //   const isAdmin = user ? user.isManager : false;
+  const { user } = useContext(UserContext);
+
+  // Component bảo vệ route cho trang Settings
+  const ProtectedSettingsRoute = ({ children }) => {
+    if (!user) {
+      return <Navigate to="/login" replace />;
+    }
+
+    if (user.role !== 1) {
+      return <Navigate to="/unauthorized" replace />;
+    }
+
+    return children;
+  };
 
   return (
     <Router>
@@ -25,21 +38,27 @@ const AllRoutes = () => {
           minHeight: "100vh",
         }}
       >
-        {/* <NavBar /> */}
-
         <Box sx={{ flexGrow: 1 }}>
           <Routes>
             {/* -------------------all routers-------------------- */}
             <Route path="/" element={<Navigate to="/homepage" />} />
             <Route path="/homepage" element={<HomePage />} />
-            <Route path="/settings" element={<Settings />} />
+
+            {/* Route Settings được bảo vệ */}
+            <Route
+              path="/settings"
+              element={
+                <ProtectedSettingsRoute>
+                  <Settings />
+                </ProtectedSettingsRoute>
+              }
+            />
+
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
           </Routes>
         </Box>
-        {/* <Box sx={{ flexShrink: 0 }}>
-          <Footer />
-        </Box> */}
       </Box>
     </Router>
   );

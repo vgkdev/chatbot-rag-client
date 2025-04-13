@@ -62,8 +62,6 @@ export const RegisterPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (validateForm()) {
-      //   setSuccessMessage("Registration Successful!");
-
       try {
         setLoading(true);
         const userCredential = await createUserWithEmailAndPassword(
@@ -74,26 +72,19 @@ export const RegisterPage = () => {
         const user = userCredential.user;
         console.log(">>>check user: ", user);
 
-        setUser({
+        // Thêm role mặc định là 0
+        const userData = {
           userId: user.uid,
           userName: username,
           email: user.email,
-        });
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            userId: user.uid,
-            userName: username,
-            email: user.email,
-          })
-        );
+          role: 0, // Thêm role mặc định ở đây
+        };
 
-        // Lưu thông tin vào Firestore
-        await setDoc(doc(db, "users", user.uid), {
-          userId: user.uid,
-          userName: username,
-          email: email,
-        });
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+
+        // Lưu thông tin vào Firestore, bao gồm cả role
+        await setDoc(doc(db, "users", user.uid), userData);
 
         setLoading(false);
         setSuccessMessage("Registration Successful!");
@@ -105,6 +96,7 @@ export const RegisterPage = () => {
       } catch (error) {
         console.error(">>>check error: ", error.message);
         setSuccessMessage("");
+        setLoading(false);
       }
     } else {
       setSuccessMessage("");

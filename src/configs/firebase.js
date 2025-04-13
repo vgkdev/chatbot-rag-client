@@ -1,6 +1,13 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import {
+  browserLocalPersistence,
+  browserSessionPersistence,
+  getAuth,
+  initializeAuth,
+  inMemoryPersistence,
+  setPersistence,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 // TODO: Add SDKs for Firebase products that you want to use
@@ -30,8 +37,24 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+const auth = initializeAuth(app, {
+  persistence: [browserLocalPersistence, browserSessionPersistence], // Thứ tự ưu tiên
+});
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-export { app, auth, db, storage };
+// Hàm helper để thiết lập persistence
+const setAuthPersistence = async (rememberMe) => {
+  try {
+    await setPersistence(
+      auth,
+      rememberMe ? browserLocalPersistence : browserSessionPersistence
+    );
+  } catch (error) {
+    console.error("Error setting persistence:", error);
+    // Fallback nếu trình duyệt không hỗ trợ
+    await setPersistence(auth, inMemoryPersistence);
+  }
+};
+
+export { app, auth, db, storage, setAuthPersistence };
