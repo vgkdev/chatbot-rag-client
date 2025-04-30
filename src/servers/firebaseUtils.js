@@ -60,23 +60,23 @@ export const loadChatsFromFirebase = async (userId) => {
   }
 };
 
-export const fetchKnowledgeBase = async () => {
-  try {
-    const docRef = doc(db, "data", "knowledgeBase");
-    const docSnap = await getDoc(docRef);
+// export const fetchKnowledgeBase = async () => {
+//   try {
+//     const docRef = doc(db, "data", "knowledgeBase");
+//     const docSnap = await getDoc(docRef);
 
-    if (docSnap.exists()) {
-      const knowledgeBaseData = docSnap.data();
-      return knowledgeBaseData.data; // Giả sử dữ liệu được lưu trong trường `content`
-    } else {
-      console.log("No knowledge base found!");
-      return "";
-    }
-  } catch (error) {
-    console.error("Error fetching knowledge base:", error);
-    return "";
-  }
-};
+//     if (docSnap.exists()) {
+//       const knowledgeBaseData = docSnap.data();
+//       return knowledgeBaseData.data; // Giả sử dữ liệu được lưu trong trường `content`
+//     } else {
+//       console.log("No knowledge base found!");
+//       return "";
+//     }
+//   } catch (error) {
+//     console.error("Error fetching knowledge base:", error);
+//     return "";
+//   }
+// };
 
 /**
  * Upload file lên Firebase Storage và trả về URL của file

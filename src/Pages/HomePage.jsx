@@ -31,7 +31,7 @@ import TypingText from "../components/TypingText";
 import { useContext } from "react";
 import { UserContext } from "../context/UserContext";
 import {
-  fetchKnowledgeBase,
+  getFilesFromFirebase,
   loadChatsFromFirebase,
   saveChatToFirebase,
 } from "../servers/firebaseUtils";
@@ -88,7 +88,8 @@ export default function HomePage() {
   const [activeChatId, setActiveChatId] = useState(null);
   const [chats, setChats] = useState([]);
   const [isNewBotMessage, setIsNewBotMessage] = useState(false);
-  const [knowledgeBaseContent, setKnowledgeBaseContent] = useState("");
+  const [fileList, setFileList] = useState([]); // Danh sách file từ Firebase
+  const [fullText, setFullText] = useState(""); // Nội dung đã gộp từ tất cả file
 
   // console.log(">>>check user: ", user);
 
@@ -110,13 +111,25 @@ export default function HomePage() {
   }, [chatHistory]);
 
   useEffect(() => {
-    const fetchKnowledgeBaseContent = async () => {
-      const knowledgeBaseContent = await fetchKnowledgeBase();
-      setKnowledgeBaseContent(knowledgeBaseContent);
-      // console.log(">>>check knowledge base: ", knowledgeBaseContent);
-    };
-    fetchKnowledgeBaseContent();
+    fetchFiles(); // Lấy danh sách file khi component được mount
   }, []);
+
+  const fetchFiles = async () => {
+    try {
+      const files = await getFilesFromFirebase(); // Lấy danh sách file từ Firebase
+      // console.log(">>>check files: ", files);
+      setFileList(files); // Cập nhật state
+
+      let combinedContent = ""; // Biến lưu nội dung đã gộp từ tất cả file
+      files.forEach((file) => {
+        combinedContent += `--- Content from ${file.name} (URL: ${file.url}) ---\n${file.textContent}\n\n`;
+      });
+      console.log(">>>check combined PDF Content:\n", combinedContent);
+      setFullText(combinedContent); // Cập nhật nội dung vào state
+    } catch (error) {
+      console.error("Error fetching files:", error);
+    }
+  };
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -153,7 +166,8 @@ export default function HomePage() {
           toàn diện với tiêu đề và giải thích cụ thể. Tránh đoán mò
           nhưng hãy đề cập đến mọi khía cạnh có thể liên quan đến câu hỏi. 
           1. File người dùng tải lên chứa tài liệu học sau đây: \n${context}
-          2. Firebase có dữ liệu về giáo trình và bài giảng chính thức từ trường đại học: \n${knowledgeBaseContent}
+          2. Cơ sở dữ liệu có dữ liệu về giáo trình và bài giảng chính thức từ trường đại học, trong đó có kèm link(url) đến file: \n${fullText}
+          3. Khi người dùng muốn có tài liệu đó hãy cung cấp link(url) đến file đó.
           `,
         },
         ...newChatHistory,
@@ -163,9 +177,11 @@ export default function HomePage() {
           content: `
           Trả lời bằng cách:  
           1. Ưu tiên nội dung từ file tải lên nếu có thông tin phù hợp.  
-          2. Sử dụng dữ liệu Firebase nếu cần làm rõ khái niệm chung.  
+          2. Sử dụng dữ liệu Cơ sở dữ liệu nếu cần làm rõ khái niệm chung.  
           3. Không tự suy đoán nếu không có thông tin chính xác.
-          4. Nếu không biết về thông tin đó thì trả lời: "Xin lỗi, tôi chưa có thông tin."
+          4. Nếu không biết về thông tin đó thì trả lời: "Xin lỗi, tôi chưa có thông tin.".
+          5. Khi yêu cầu có các từ như: "gửi/muốn tài liệu", "gửi/muốn file", "gửi/muốn link", "gửi/muốn url" thì hãy cung cấp link(url) đến file đó.
+          6. Khi gửi kèm link(url) phải theo định dạng sau: "Link tài liệu: [tên file](link)".
           ${message}
           `,
         },
