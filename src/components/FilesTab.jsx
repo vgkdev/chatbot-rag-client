@@ -247,7 +247,7 @@ export const FilesTab = () => {
           /> */}
 
           {/* File List DataGrid */}
-          <Box sx={{ height: 300, width: "100%", backgroundColor: "#1e1e1e" }}>
+          <Box sx={{ height: 500, width: "100%", backgroundColor: "#1e1e1e" }}>
             <DataGrid
               rows={rows}
               columns={columns}

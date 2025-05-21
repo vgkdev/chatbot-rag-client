@@ -14,10 +14,14 @@ import { UserContext } from "../context/UserContext";
 import { UnauthorizedPage } from "../Pages/UnauthorizedPage";
 
 const AllRoutes = () => {
-  const { user } = useContext(UserContext);
+  const { user, loading } = useContext(UserContext);
 
   // Component bảo vệ route cho trang Settings
   const ProtectedSettingsRoute = ({ children }) => {
+    if (loading) {
+      return <div>Loading...</div>;
+    }
+
     if (!user) {
       return <Navigate to="/login" replace />;
     }
@@ -28,7 +32,6 @@ const AllRoutes = () => {
 
     return children;
   };
-
   return (
     <Router>
       <Box

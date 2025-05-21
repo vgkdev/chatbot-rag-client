@@ -13,6 +13,7 @@ import AttachFileIcon from "@mui/icons-material/AttachFile";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import {
   Avatar,
+  CircularProgress,
   InputBase,
   List,
   ListItem,
@@ -91,13 +92,25 @@ export default function HomePage() {
   const [fileList, setFileList] = useState([]); // Danh sách file từ Firebase
   const [fullText, setFullText] = useState(""); // Nội dung đã gộp từ tất cả file
 
+  const [loadingChats, setLoadingChats] = useState(false);
+  const [loadingFilesFromFirebase, setLoadingFilesFromFirebase] =
+    useState(true);
+  const [loadingChatContent, setLoadingChatContent] = useState(false);
+
   // console.log(">>>check user: ", user);
 
   useEffect(() => {
     const fetchChats = async () => {
       if (user) {
-        const loadedChats = await loadChatsFromFirebase(user.userId);
-        setChats(loadedChats);
+        setLoadingChats(true);
+        try {
+          const loadedChats = await loadChatsFromFirebase(user.userId);
+          setChats(loadedChats);
+        } catch (error) {
+          console.error("Error loading chats:", error);
+        } finally {
+          setLoadingChats(false);
+        }
       }
     };
     fetchChats();
@@ -115,6 +128,7 @@ export default function HomePage() {
   }, []);
 
   const fetchFiles = async () => {
+    setLoadingFilesFromFirebase(true);
     try {
       const files = await getFilesFromFirebase(); // Lấy danh sách file từ Firebase
       // console.log(">>>check files: ", files);
@@ -128,6 +142,8 @@ export default function HomePage() {
       setFullText(combinedContent); // Cập nhật nội dung vào state
     } catch (error) {
       console.error("Error fetching files:", error);
+    } finally {
+      setLoadingFilesFromFirebase(false);
     }
   };
 
@@ -179,9 +195,10 @@ export default function HomePage() {
           1. Ưu tiên nội dung từ file tải lên nếu có thông tin phù hợp.  
           2. Sử dụng dữ liệu Cơ sở dữ liệu nếu cần làm rõ khái niệm chung.  
           3. Không tự suy đoán nếu không có thông tin chính xác.
-          4. Nếu không biết về thông tin đó thì trả lời: "Xin lỗi, tôi chưa có thông tin.".
-          5. Khi yêu cầu có các từ như: "gửi/muốn tài liệu", "gửi/muốn file", "gửi/muốn link", "gửi/muốn url" thì hãy cung cấp link(url) đến file đó.
-          6. Khi gửi kèm link(url) phải theo định dạng sau: "Link tài liệu: [tên file](link)".
+          4. Khi trả lời vui lòng chỉ cung cấp thông tin tổng quan từ tài liệu tham khảo mà không đề cập đến chi tiết như số slide, số trang hoặc định dạng tài liệu
+          5. Nếu không biết về thông tin đó thì trả lời: "Xin lỗi, tôi chưa có thông tin.".
+          6. Khi yêu cầu có các từ như: "gửi/muốn tài liệu", "gửi/muốn file", "gửi/muốn link", "gửi/muốn url" thì hãy cung cấp link(url) đến file đó.
+          7. Khi gửi kèm link(url) phải theo định dạng sau: "Link tài liệu: [tên file](link)".
           ${message}
           `,
         },
@@ -228,6 +245,7 @@ export default function HomePage() {
   };
 
   const loadChat = async (chatId) => {
+    setLoadingChatContent(true);
     try {
       const chatRef = doc(db, "users", user.userId, "chats", chatId);
       const chatDoc = await getDoc(chatRef);
@@ -243,6 +261,8 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error("Error loading chat:", error);
+    } finally {
+      setLoadingChatContent(false);
     }
   };
 
@@ -338,89 +358,122 @@ export default function HomePage() {
         </DrawerHeader>
         <Divider />
         <List>
-          {chats.map((chat) => (
-            <ListItem
-              sx={{ cursor: "pointer" }}
-              button="true"
-              key={chat.id}
-              onClick={() => loadChat(chat.id)}
-            >
-              <ListItemText primary={chat.title} />
-            </ListItem>
-          ))}
+          {loadingChats ? (
+            <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : (
+            chats.map((chat) => (
+              <ListItem
+                sx={{ cursor: "pointer" }}
+                button="true"
+                key={chat.id}
+                onClick={() => loadChat(chat.id)}
+              >
+                <ListItemText primary={chat.title} />
+              </ListItem>
+            ))
+          )}
         </List>
       </Drawer>
 
-      <Main
-        open={open}
-        sx={{
-          flexGrow: 1,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "flex-end",
-          pb: 3,
-        }}
-      >
+      {loadingFilesFromFirebase ? (
         <Box
           sx={{
-            flexGrow: 1,
-            overflowY: "auto",
-            p: 2,
-            // backgroundColor: "#f1f1f1",
-            borderRadius: "8px",
-            // border: "1px solid red",
-            my: 5,
-            mx: 10,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "100%",
           }}
         >
-          {chatHistory.map((chat, index) => (
-            <Box
-              key={index}
-              sx={{
-                mb: 2,
-                display: "flex",
-                justifyContent:
-                  chat.role === "user" ? "flex-end" : "flex-start",
-              }}
-            >
-              <Box
-                sx={{
-                  p: 2,
-                  borderRadius: "12px",
-                  backgroundColor: chat.role === "user" ? "#303030" : "#242424",
-                  color: chat.role === "user" ? "#fff" : "#fff",
-                  maxWidth: "70%",
-                }}
-              >
-                {chat.role === "assistant" ? (
+          <Box sx={{ textAlign: "center" }}>
+            <CircularProgress size={60} />
+            <Typography variant="h6" sx={{ mt: 2 }}>
+              Đang tải dữ liệu từ hệ thống...
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
+              Vui lòng chờ trong giây lát
+            </Typography>
+          </Box>
+        </Box>
+      ) : (
+        <Main
+          open={open}
+          sx={{
+            flexGrow: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "flex-end",
+            pb: 3,
+          }}
+        >
+          <Box
+            sx={{
+              flexGrow: 1,
+              overflowY: "auto",
+              p: 2,
+              // backgroundColor: "#f1f1f1",
+              borderRadius: "8px",
+              // border: "1px solid red",
+              my: 5,
+              mx: 10,
+            }}
+          >
+            {loadingChatContent ? (
+              <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              chatHistory.map((chat, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    mb: 2,
+                    display: "flex",
+                    justifyContent:
+                      chat.role === "user" ? "flex-end" : "flex-start",
+                  }}
+                >
                   <Box
                     sx={{
-                      // border: "1px solid red",
-                      display: "flex",
-                      gap: "25px",
+                      p: 2,
+                      borderRadius: "12px",
+                      backgroundColor:
+                        chat.role === "user" ? "#303030" : "#242424",
+                      color: chat.role === "user" ? "#fff" : "#fff",
+                      maxWidth: "70%",
                     }}
                   >
-                    <Avatar
-                      sx={{
-                        width: 35,
-                        height: 35,
-                        background: "linear-gradient(45deg, #142ccb, #124acd)",
-                        color: "#ffffff",
-                      }}
-                    >
-                      <SmartToyOutlinedIcon />
-                    </Avatar>
+                    {chat.role === "assistant" ? (
+                      <Box
+                        sx={{
+                          // border: "1px solid red",
+                          display: "flex",
+                          gap: "25px",
+                        }}
+                      >
+                        <Avatar
+                          sx={{
+                            width: 35,
+                            height: 35,
+                            background:
+                              "linear-gradient(45deg, #142ccb, #124acd)",
+                            color: "#ffffff",
+                          }}
+                        >
+                          <SmartToyOutlinedIcon />
+                        </Avatar>
 
-                    {/* Bot trả lời */}
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        // flex: 1,
-                        wordWrap: "break-word",
-                      }}
-                    >
-                      {/* <ReactMarkdown
+                        {/* Bot trả lời */}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            // flex: 1,
+                            wordWrap: "break-word",
+                          }}
+                        >
+                          {/* <ReactMarkdown
                         components={{
                           p: ({ node, ...props }) => (
                             <p
@@ -453,172 +506,175 @@ export default function HomePage() {
                       >
                         {chat.content}
                       </ReactMarkdown> */}
-                      {/* <TypingText text={chat.content} /> */}
-                      {isNewBotMessage && index === latestBotMessageIndex ? (
-                        <TypingText text={chat.content} />
-                      ) : (
-                        <ReactMarkdown
-                          components={{
-                            p: ({ node, ...props }) => (
-                              <p
-                                {...props}
-                                style={{
-                                  marginBottom: "4px",
-                                  lineHeight: "1.4",
-                                }}
-                              />
-                            ),
-                            h1: ({ node, ...props }) => (
-                              <h1
-                                {...props}
-                                style={{
-                                  marginBottom: "24px",
-                                  lineHeight: "1.2",
-                                }}
-                              />
-                            ),
-                            h2: ({ node, ...props }) => (
-                              <h2
-                                {...props}
-                                style={{
-                                  marginBottom: "20px",
-                                  lineHeight: "1.2",
-                                }}
-                              />
-                            ),
-                          }}
-                        >
-                          {chat.content}
-                        </ReactMarkdown>
-                      )}
-                    </Box>
+                          {/* <TypingText text={chat.content} /> */}
+                          {isNewBotMessage &&
+                          index === latestBotMessageIndex ? (
+                            <TypingText text={chat.content} />
+                          ) : (
+                            <ReactMarkdown
+                              components={{
+                                p: ({ node, ...props }) => (
+                                  <p
+                                    {...props}
+                                    style={{
+                                      marginBottom: "4px",
+                                      lineHeight: "1.4",
+                                    }}
+                                  />
+                                ),
+                                h1: ({ node, ...props }) => (
+                                  <h1
+                                    {...props}
+                                    style={{
+                                      marginBottom: "24px",
+                                      lineHeight: "1.2",
+                                    }}
+                                  />
+                                ),
+                                h2: ({ node, ...props }) => (
+                                  <h2
+                                    {...props}
+                                    style={{
+                                      marginBottom: "20px",
+                                      lineHeight: "1.2",
+                                    }}
+                                  />
+                                ),
+                              }}
+                            >
+                              {chat.content}
+                            </ReactMarkdown>
+                          )}
+                        </Box>
+                      </Box>
+                    ) : (
+                      chat.content
+                    )}
                   </Box>
-                ) : (
-                  chat.content
-                )}
-              </Box>
-            </Box>
-          ))}
-          {isThinking && (
-            <Box
-              sx={{
-                // border: "1px solid red",
-                display: "flex",
-                gap: "25px",
-                alignItems: "center",
-              }}
-            >
-              <Avatar
+                </Box>
+              ))
+            )}
+            {isThinking && (
+              <Box
                 sx={{
-                  width: 35,
-                  height: 35,
-                  background: "linear-gradient(45deg, #142ccb, #124acd)",
-                  color: "#ffffff",
+                  // border: "1px solid red",
+                  display: "flex",
+                  gap: "25px",
+                  alignItems: "center",
                 }}
               >
-                <SmartToyOutlinedIcon />
-              </Avatar>
-              <ThinkingAnimation />
-            </Box>
-          )}
-          <div ref={chatEndRef} /> {/* Đây là phần tự động cuộn xuống */}
-        </Box>
+                <Avatar
+                  sx={{
+                    width: 35,
+                    height: 35,
+                    background: "linear-gradient(45deg, #142ccb, #124acd)",
+                    color: "#ffffff",
+                  }}
+                >
+                  <SmartToyOutlinedIcon />
+                </Avatar>
+                <ThinkingAnimation />
+              </Box>
+            )}
+            <div ref={chatEndRef} /> {/* Đây là phần tự động cuộn xuống */}
+          </Box>
 
-        <Box
-          sx={{
-            display: "flex",
-            // alignItems: "center",
-            flexDirection: "column",
-            p: 1,
-            borderRadius: "24px",
-            backgroundColor: "#333",
-            color: "white",
-            boxShadow: "none",
-            maxWidth: "600px",
-            margin: "0 auto",
-            width: "100%",
-          }}
-        >
           <Box
             sx={{
               display: "flex",
-              flexDirection: "row",
-              flexGrow: 1,
-              overflowX: "auto", // Kích hoạt cuộn ngang
-              px: 2,
+              // alignItems: "center",
+              flexDirection: "column",
+              p: 1,
+              borderRadius: "24px",
+              backgroundColor: "#333",
+              color: "white",
+              boxShadow: "none",
+              maxWidth: "600px",
+              margin: "0 auto",
+              width: "100%",
             }}
           >
-            <List
+            <Box
               sx={{
-                display: "flex", // Hiển thị ngang
+                display: "flex",
                 flexDirection: "row",
-                gap: 2, // Khoảng cách giữa các file
-                py: 1, // Khoảng cách padding trên và dưới
+                flexGrow: 1,
+                overflowX: "auto", // Kích hoạt cuộn ngang
+                px: 2,
               }}
             >
-              {uploadedFiles.map((fileName, index) => (
-                <ListItem
-                  key={index}
-                  sx={{
-                    display: "inline-flex", // Hiển thị mỗi item như một mục ngang
-                    width: "auto", // Không bị cố định chiều rộng
-                    whiteSpace: "nowrap", // Tránh xuống dòng nếu tên file dài
-                    border: "1px solid #444",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <ListItemIcon>
-                    <PictureAsPdfOutlinedIcon />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={fileName}
+              <List
+                sx={{
+                  display: "flex", // Hiển thị ngang
+                  flexDirection: "row",
+                  gap: 2, // Khoảng cách giữa các file
+                  py: 1, // Khoảng cách padding trên và dưới
+                }}
+              >
+                {uploadedFiles.map((fileName, index) => (
+                  <ListItem
+                    key={index}
                     sx={{
-                      textAlign: "center", // Căn giữa nội dung
-                      overflow: "hidden", // Giới hạn hiển thị nếu tên quá dài
-                      textOverflow: "ellipsis", // Hiển thị "..." nếu quá dài
+                      display: "inline-flex", // Hiển thị mỗi item như một mục ngang
+                      width: "auto", // Không bị cố định chiều rộng
+                      whiteSpace: "nowrap", // Tránh xuống dòng nếu tên file dài
+                      border: "1px solid #444",
+                      borderRadius: "8px",
                     }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Box>
+                  >
+                    <ListItemIcon>
+                      <PictureAsPdfOutlinedIcon />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={fileName}
+                      sx={{
+                        textAlign: "center", // Căn giữa nội dung
+                        overflow: "hidden", // Giới hạn hiển thị nếu tên quá dài
+                        textOverflow: "ellipsis", // Hiển thị "..." nếu quá dài
+                      }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
 
-          {/* Attachment Icon */}
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <IconButton component="label" sx={{ color: "white" }}>
-              <AttachFileIcon />
-              <input
-                type="file"
-                accept="application/pdf"
-                hidden
-                multiple
-                onChange={handleFileUpload}
+            {/* Attachment Icon */}
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <IconButton component="label" sx={{ color: "white" }}>
+                <AttachFileIcon />
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  hidden
+                  multiple
+                  onChange={handleFileUpload}
+                />
+              </IconButton>
+
+              {/* Input Field */}
+              <InputBase
+                placeholder="Chat"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                sx={{
+                  ml: 1,
+                  flex: 1,
+                  color: "white",
+                }}
+                onKeyDown={handleKeyDown}
               />
-            </IconButton>
 
-            {/* Input Field */}
-            <InputBase
-              placeholder="Chat"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              sx={{
-                ml: 1,
-                flex: 1,
-                color: "white",
-              }}
-              onKeyDown={handleKeyDown}
-            />
-
-            <IconButton
-              sx={{ color: "white" }}
-              onClick={() => sendMessage()}
-              disabled={!message.trim()}
-            >
-              <SendIcon />
-            </IconButton>
+              <IconButton
+                sx={{ color: "white" }}
+                onClick={() => sendMessage()}
+                disabled={!message.trim()}
+              >
+                <SendIcon />
+              </IconButton>
+            </Box>
           </Box>
-        </Box>
-      </Main>
+        </Main>
+      )}
     </Box>
   );
 }
