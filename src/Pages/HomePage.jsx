@@ -19,6 +19,8 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  Menu,
+  MenuItem,
   Typography,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
@@ -32,12 +34,18 @@ import TypingText from "../components/TypingText";
 import { useContext } from "react";
 import { UserContext } from "../context/UserContext";
 import {
+  deleteChatFromFirebase,
   getFilesFromFirebase,
   loadChatsFromFirebase,
   saveChatToFirebase,
 } from "../servers/firebaseUtils";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../configs/firebase";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
+import { ChatItem } from "../components/ChatItem";
+import ConfirmationDialog from "../components/ConfirmationDialog";
 
 const drawerWidth = 240;
 const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
@@ -96,6 +104,13 @@ export default function HomePage() {
   const [loadingFilesFromFirebase, setLoadingFilesFromFirebase] =
     useState(true);
   const [loadingChatContent, setLoadingChatContent] = useState(false);
+
+  const [isHoveredChat, setIsHoveredChat] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [selectedChatId, setSelectedChatId] = useState(null);
+  const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+  const [chatToDelete, setChatToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // console.log(">>>check user: ", user);
 
@@ -184,9 +199,28 @@ export default function HomePage() {
           1. File người dùng tải lên chứa tài liệu học sau đây: \n${context}
           2. Cơ sở dữ liệu có dữ liệu về giáo trình và bài giảng chính thức từ trường đại học, trong đó có kèm link(url) đến file: \n${fullText}
           3. Khi người dùng muốn có tài liệu đó hãy cung cấp link(url) đến file đó.
+          Lịch sử trò chuyện trước đó:\n${newChatHistory
+            .map(
+              (msg) =>
+                `${msg.role === "user" ? "Người dùng" : "Trợ lý"}: ${
+                  msg.content
+                }`
+            )
+            .join("\n")}\n,
           `,
         },
-        ...newChatHistory,
+        // {
+        //   role: "system",
+        //   content: `Lịch sử trò chuyện trước đó:\n${newChatHistory
+        //     .map(
+        //       (msg) =>
+        //         `${msg.role === "user" ? "Người dùng" : "Trợ lý"}: ${
+        //           msg.content
+        //         }`
+        //     )
+        //     .join("\n")}\n`,
+        // },
+        // ...newChatHistory, //dùng cái này
         // ...chatHistory,
         {
           role: "user",
@@ -197,7 +231,7 @@ export default function HomePage() {
           3. Không tự suy đoán nếu không có thông tin chính xác.
           4. Khi trả lời vui lòng chỉ cung cấp thông tin tổng quan từ tài liệu tham khảo mà không đề cập đến chi tiết như số slide, số trang hoặc định dạng tài liệu
           5. Nếu không biết về thông tin đó thì trả lời: "Xin lỗi, tôi chưa có thông tin.".
-          6. Khi yêu cầu có các từ như: "gửi/muốn tài liệu", "gửi/muốn file", "gửi/muốn link", "gửi/muốn url" thì hãy cung cấp link(url) đến file đó.
+          6. Khi yêu cầu có các từ như: "gửi tài liệu", "gửi file", "gửi link", "gửi url", "muốn tài liệu", "muốn file", "muốn link", "muốn url" thì hãy cung cấp link(url) đến chính xác file mà người dùng đã đề cập đến trước đó thông qua Lịch sử trò chuyện, không gửi những file khác không liên quan.
           7. Khi gửi kèm link(url) phải theo định dạng sau: "Link tài liệu: [tên file](link)".
           ${message}
           `,
@@ -331,6 +365,92 @@ export default function HomePage() {
     }
   };
 
+  const handleMenuOpen = (event, chatId) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedChatId(chatId);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedChatId(null);
+  };
+
+  const handleRename = () => {
+    if (selectedChatId) {
+      // onRename(selectedChatId);
+    }
+    handleMenuClose();
+  };
+
+  const handleDelete = async (selectedChatId) => {
+    setChatToDelete(selectedChatId);
+    setOpenConfirmDialog(true); // Mở modal xác nhận
+    handleMenuClose();
+    // if (selectedChatId) {
+    //   setIsDeleting(true); // Bật trạng thái loading khi xóa
+    //   try {
+    //     const success = await deleteChatFromFirebase(
+    //       user.userId,
+    //       selectedChatId
+    //     );
+    //     if (success) {
+    //       console.log("Chat deleted successfully");
+    //       // Load lại danh sách chats sau khi xóa
+    //       const loadedChats = await loadChatsFromFirebase(user.userId);
+    //       setChats(loadedChats);
+    //       // Nếu chat đang active bị xóa, reset giao diện
+    //       if (activeChatId === selectedChatId) {
+    //         setChatHistory([]);
+    //         setContext("");
+    //         setLatestBotMessageIndex(-1);
+    //         setActiveChatId(null);
+    //         setIsNewBotMessage(false);
+    //       }
+    //     }
+    //   } catch (error) {
+    //     console.error("Failed to delete chat:", error);
+    //   } finally {
+    //     setIsDeleting(false); // Tắt trạng thái loading sau khi hoàn tất
+    //     handleMenuClose();
+    //   }
+    // }
+    // handleMenuClose();
+  };
+
+  const confirmDelete = async () => {
+    if (chatToDelete) {
+      setIsDeleting(true); // Bật trạng thái loading
+      try {
+        const success = await deleteChatFromFirebase(user.userId, chatToDelete);
+        if (success) {
+          console.log("Chat deleted successfully");
+          // Load lại danh sách chats sau khi xóa
+          const loadedChats = await loadChatsFromFirebase(user.userId);
+          setChats(loadedChats);
+          // Nếu chat đang active bị xóa, reset giao diện
+          if (activeChatId === chatToDelete) {
+            setChatHistory([]);
+            setContext("");
+            setLatestBotMessageIndex(-1);
+            setActiveChatId(null);
+            setIsNewBotMessage(false);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to delete chat:", error);
+      } finally {
+        setIsDeleting(false); // Tắt trạng thái loading
+        setOpenConfirmDialog(false); // Đóng modal sau khi hoàn tất
+      }
+    }
+  };
+
+  const openDeleteConfirmation = (chatId) => {
+    setChatToDelete(chatId);
+    setOpenConfirmDialog(true);
+    handleMenuClose();
+  };
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <AppBar open={open} handleDrawerOpen={handleDrawerOpen} />
@@ -363,16 +483,22 @@ export default function HomePage() {
               <CircularProgress size={24} />
             </Box>
           ) : (
-            chats.map((chat) => (
-              <ListItem
-                sx={{ cursor: "pointer" }}
-                button="true"
-                key={chat.id}
-                onClick={() => loadChat(chat.id)}
-              >
-                <ListItemText primary={chat.title} />
-              </ListItem>
-            ))
+            chats.map((chat) => {
+              return (
+                <ChatItem
+                  key={chat.id}
+                  chat={chat}
+                  loadChat={loadChat}
+                  onRename={handleRename}
+                  onDelete={openDeleteConfirmation}
+                  anchorEl={anchorEl}
+                  selectedChatId={selectedChatId}
+                  handleMenuOpen={handleMenuOpen}
+                  handleMenuClose={handleMenuClose}
+                  isDeleting={isDeleting}
+                />
+              );
+            })
           )}
         </List>
       </Drawer>
@@ -673,6 +799,17 @@ export default function HomePage() {
               </IconButton>
             </Box>
           </Box>
+          <ConfirmationDialog
+            open={openConfirmDialog}
+            onClose={() => setOpenConfirmDialog(false)}
+            onConfirm={confirmDelete}
+            title="Xác nhận xóa"
+            message="Bạn có chắc chắn muốn xóa cuộc trò chuyện này không? Hành động này không thể hoàn tác."
+            confirmText="Xác nhận"
+            cancelText="Hủy"
+            confirmColor="error"
+            isLoading={isDeleting}
+          />
         </Main>
       )}
     </Box>

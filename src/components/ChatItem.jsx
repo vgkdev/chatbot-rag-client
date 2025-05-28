@@ -1,0 +1,110 @@
+import { useState } from "react";
+import {
+  ListItem,
+  ListItemText,
+  IconButton,
+  Menu,
+  MenuItem,
+  CircularProgress,
+} from "@mui/material";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+
+// Cập nhật toàn bộ component để hiển thị loading khi xóa
+export const ChatItem = ({
+  chat,
+  loadChat,
+  onRename,
+  onDelete,
+  anchorEl,
+  selectedChatId,
+  handleMenuOpen,
+  handleMenuClose,
+  isDeleting,
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <ListItem
+      sx={{
+        cursor: "pointer",
+        position: "relative",
+        "&:hover": {
+          backgroundColor: "#2f2f2f",
+        },
+      }}
+      key={chat.id}
+      onClick={() => loadChat(chat.id)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <ListItemText primary={chat.title} />
+      <div
+        style={{
+          position: "absolute",
+          right: "1px",
+          opacity: isHovered ? 1 : 0,
+          transition: "opacity 0.2s ease-in-out",
+        }}
+      >
+        {isDeleting && selectedChatId === chat.id ? (
+          <CircularProgress size={24} sx={{ color: "#fff", mr: 1 }} />
+        ) : (
+          <IconButton
+            onClick={(e) => {
+              e.stopPropagation();
+              handleMenuOpen(e, chat.id);
+            }}
+            sx={{ color: "#fff" }}
+          >
+            <MoreVertIcon />
+          </IconButton>
+        )}
+      </div>
+
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl) && selectedChatId === chat.id}
+        onClose={handleMenuClose}
+        onClick={(e) => e.stopPropagation()}
+        slotProps={{
+          paper: {
+            style: {
+              backgroundColor: "#424242",
+              color: "#fff",
+              borderRadius: "8px",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
+            },
+          },
+        }}
+      >
+        <MenuItem
+          onClick={onRename}
+          sx={{
+            display: "flex",
+            gap: "8px",
+            padding: "8px 16px",
+            "&:hover": { backgroundColor: "#616161" },
+          }}
+        >
+          <EditIcon sx={{ fontSize: "20px" }} />
+          Rename
+        </MenuItem>
+        <MenuItem
+          onClick={() => onDelete(chat.id)}
+          sx={{
+            display: "flex",
+            gap: "8px",
+            padding: "8px 16px",
+            color: "#ff4d4f",
+            "&:hover": { backgroundColor: "#ff4d4f", color: "#fff" },
+          }}
+        >
+          <DeleteIcon sx={{ fontSize: "20px" }} />
+          Delete
+        </MenuItem>
+      </Menu>
+    </ListItem>
+  );
+};

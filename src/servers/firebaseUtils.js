@@ -5,6 +5,7 @@ import {
   setDoc,
   getDocs,
   getDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import {
   ref,
@@ -181,6 +182,26 @@ export const deleteFileFromFirebase = async (file, folderPath = "uploads") => {
     return true;
   } catch (error) {
     console.error(`Error deleting file ${file.name}:`, error);
+    throw error; // Ném lỗi để xử lý ở nơi gọi hàm
+  }
+};
+
+/**
+ * Xóa chat khỏi Firebase Firestore dựa trên userId và chatId
+ * @param {string} userId - ID của người dùng
+ * @param {string} chatId - ID của chat cần xóa
+ * @returns {Promise<boolean>} - Trả về true nếu xóa thành công
+ */
+export const deleteChatFromFirebase = async (userId, chatId) => {
+  console.log(">>>check selectedChatId: ", chatId);
+  console.log(">>>check userId: ", userId);
+  try {
+    const chatRef = doc(db, "users", userId, "chats", chatId);
+    await deleteDoc(chatRef);
+    console.log(`Chat ${chatId} deleted successfully for user ${userId}`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting chat ${chatId} for user ${userId}:`, error);
     throw error; // Ném lỗi để xử lý ở nơi gọi hàm
   }
 };
