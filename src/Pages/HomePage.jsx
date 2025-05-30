@@ -37,6 +37,7 @@ import {
   deleteChatFromFirebase,
   getFilesFromFirebase,
   loadChatsFromFirebase,
+  renameChatInFirebase,
   saveChatToFirebase,
 } from "../servers/firebaseUtils";
 import { doc, getDoc } from "firebase/firestore";
@@ -375,9 +376,22 @@ export default function HomePage() {
     setSelectedChatId(null);
   };
 
-  const handleRename = () => {
-    if (selectedChatId) {
-      // onRename(selectedChatId);
+  const handleRename = async (chatId, newTitle) => {
+    if (chatId && newTitle.trim()) {
+      try {
+        const success = await renameChatInFirebase(
+          user.userId,
+          chatId,
+          newTitle
+        );
+        if (success) {
+          // Cập nhật danh sách chats sau khi đổi tên
+          const loadedChats = await loadChatsFromFirebase(user.userId);
+          setChats(loadedChats);
+        }
+      } catch (error) {
+        console.error("Failed to rename chat:", error);
+      }
     }
     handleMenuClose();
   };

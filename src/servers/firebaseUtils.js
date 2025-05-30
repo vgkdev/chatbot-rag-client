@@ -205,3 +205,22 @@ export const deleteChatFromFirebase = async (userId, chatId) => {
     throw error; // Ném lỗi để xử lý ở nơi gọi hàm
   }
 };
+
+/**
+ * Đổi tên chat trong Firebase Firestore
+ * @param {string} userId - ID của người dùng
+ * @param {string} chatId - ID của chat cần đổi tên
+ * @param {string} newTitle - Tiêu đề mới
+ * @returns {Promise<boolean>} - Trả về true nếu đổi tên thành công
+ */
+export const renameChatInFirebase = async (userId, chatId, newTitle) => {
+  try {
+    const chatRef = doc(db, "users", userId, "chats", chatId);
+    await setDoc(chatRef, { title: newTitle }, { merge: true });
+    console.log(`Chat ${chatId} renamed to "${newTitle}" for user ${userId}`);
+    return true;
+  } catch (error) {
+    console.error(`Error renaming chat ${chatId} for user ${userId}:`, error);
+    throw error;
+  }
+};

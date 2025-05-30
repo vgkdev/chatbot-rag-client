@@ -80,9 +80,9 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
           >
             <ListIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          {/* <Typography variant="h6" noWrap component="div">
             New Chat
-          </Typography>
+          </Typography> */}
         </>
 
         <>
