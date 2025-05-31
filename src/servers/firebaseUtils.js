@@ -6,6 +6,7 @@ import {
   getDocs,
   getDoc,
   deleteDoc,
+  onSnapshot,
 } from "firebase/firestore";
 import {
   ref,
@@ -221,6 +222,122 @@ export const renameChatInFirebase = async (userId, chatId, newTitle) => {
     return true;
   } catch (error) {
     console.error(`Error renaming chat ${chatId} for user ${userId}:`, error);
+    throw error;
+  }
+};
+
+// Subject-related Firebase operations
+export const getSubjects = async () => {
+  try {
+    const subjectsRef = collection(db, "system", "subjects", "items");
+    const querySnapshot = await getDocs(subjectsRef);
+    return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Error getting subjects:", error);
+    throw error;
+  }
+};
+
+export const addSubject = async (subjectName) => {
+  try {
+    const subjectsRef = collection(db, "system", "subjects", "items");
+    await addDoc(subjectsRef, {
+      name: subjectName.trim(),
+      createdAt: new Date(),
+    });
+  } catch (error) {
+    console.error("Error adding subject:", error);
+    throw error;
+  }
+};
+
+export const deleteSubject = async (subjectId) => {
+  try {
+    const subjectRef = doc(db, "system", "subjects", "items", subjectId);
+    await deleteDoc(subjectRef);
+  } catch (error) {
+    console.error("Error deleting subject:", error);
+    throw error;
+  }
+};
+
+export const subscribeToSubjects = (callback) => {
+  const subjectsRef = collection(db, "system", "subjects", "items");
+  return onSnapshot(subjectsRef, (snapshot) => {
+    const subjects = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    callback(subjects);
+  });
+};
+
+export const updateSubject = async (subjectId, newName) => {
+  try {
+    const subjectRef = doc(db, "system", "subjects", "items", subjectId);
+    await setDoc(
+      subjectRef,
+      { name: newName.trim() },
+      { merge: true } // Chỉ cập nhật trường name, giữ nguyên các trường khác
+    );
+  } catch (error) {
+    console.error("Error updating subject:", error);
+    throw error;
+  }
+};
+
+// Major-related Firebase operations
+export const getMajors = async () => {
+  try {
+    const majorsRef = collection(db, "system", "majors", "items");
+    const querySnapshot = await getDocs(majorsRef);
+    return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Error getting majors:", error);
+    throw error;
+  }
+};
+
+export const addMajor = async (majorName) => {
+  try {
+    const majorsRef = collection(db, "system", "majors", "items");
+    await addDoc(majorsRef, {
+      name: majorName.trim(),
+      createdAt: new Date(),
+    });
+  } catch (error) {
+    console.error("Error adding major:", error);
+    throw error;
+  }
+};
+
+export const deleteMajor = async (majorId) => {
+  try {
+    const majorRef = doc(db, "system", "majors", "items", majorId);
+    await deleteDoc(majorRef);
+  } catch (error) {
+    console.error("Error deleting major:", error);
+    throw error;
+  }
+};
+
+export const subscribeToMajors = (callback) => {
+  const majorsRef = collection(db, "system", "majors", "items");
+  return onSnapshot(majorsRef, (snapshot) => {
+    const majors = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    callback(majors);
+  });
+};
+
+export const updateMajor = async (majorId, newName) => {
+  try {
+    const majorRef = doc(db, "system", "majors", "items", majorId);
+    await setDoc(majorRef, { name: newName.trim() }, { merge: true });
+  } catch (error) {
+    console.error("Error updating major:", error);
     throw error;
   }
 };

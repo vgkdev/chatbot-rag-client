@@ -39,6 +39,7 @@ export const Settings = () => {
           top: 24,
           right: 24,
           bgcolor: "#00C853",
+          "&:hover": { backgroundColor: "#089242" },
           color: "black",
         }}
       >
