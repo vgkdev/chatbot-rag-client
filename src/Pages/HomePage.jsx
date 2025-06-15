@@ -497,7 +497,7 @@ export default function HomePage() {
               <CircularProgress size={24} />
             </Box>
           ) : (
-            chats.map((chat) => {
+            [...chats].reverse().map((chat) => {
               return (
                 <ChatItem
                   key={chat.id}

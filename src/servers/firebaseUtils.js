@@ -238,13 +238,18 @@ export const getSubjects = async () => {
   }
 };
 
-export const addSubject = async (subjectName) => {
+export const addSubject = async (subjectData) => {
   try {
     const subjectsRef = collection(db, "system", "subjects", "items");
-    await addDoc(subjectsRef, {
-      name: subjectName.trim(),
+
+    const subjectToAdd = {
+      name: subjectData.name.trim(),
+      majors: subjectData.majors || [], // Mảng các object {id, name}
+      // majorIds: subjectData.majors ? subjectData.majors.map((m) => m.id) : [], // Mảng các id để dễ query
       createdAt: new Date(),
-    });
+    };
+
+    await addDoc(subjectsRef, subjectToAdd);
   } catch (error) {
     console.error("Error adding subject:", error);
     throw error;
@@ -272,13 +277,17 @@ export const subscribeToSubjects = (callback) => {
   });
 };
 
-export const updateSubject = async (subjectId, newName) => {
+export const updateSubject = async (subjectId, subjectData) => {
   try {
     const subjectRef = doc(db, "system", "subjects", "items", subjectId);
     await setDoc(
       subjectRef,
-      { name: newName.trim() },
-      { merge: true } // Chỉ cập nhật trường name, giữ nguyên các trường khác
+      {
+        name: subjectData.name.trim(),
+        majors: subjectData.majors || [],
+        isBasic: subjectData.isBasic || false,
+      },
+      { merge: true } // Chỉ cập nhật các trường được chỉ định, giữ nguyên các trường khác
     );
   } catch (error) {
     console.error("Error updating subject:", error);

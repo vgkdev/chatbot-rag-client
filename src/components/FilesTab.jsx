@@ -11,12 +11,21 @@ import {
   Tabs,
   TextField,
   Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
 } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { styled } from "@mui/material/styles";
 import { DataGrid } from "@mui/x-data-grid";
 import FolderIcon from "@mui/icons-material/Folder";
-import DeleteIcon from "@mui/icons-material/Delete"; // Thêm icon xóa
+import DeleteIcon from "@mui/icons-material/Delete";
+import AddIcon from "@mui/icons-material/Add";
 
 import {
   deleteFileFromFirebase,
@@ -42,9 +51,27 @@ export const FilesTab = () => {
   const [files, setFiles] = useState([]);
   const fileInputRef = useRef(null);
   const [fileList, setFileList] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [majors, setMajors] = useState([
+    { id: 1, name: "Công nghệ thông tin" },
+    { id: 2, name: "Kế toán" },
+    { id: 3, name: "Quản trị kinh doanh" },
+  ]);
+  const [subjects, setSubjects] = useState([
+    { id: 1, name: "Lập trình web", majorId: 1 },
+    { id: 2, name: "Cơ sở dữ liệu", majorId: 1 },
+    { id: 3, name: "Kế toán tài chính", majorId: 2 },
+  ]);
+  const [formData, setFormData] = useState({
+    fileName: "",
+    majorId: "",
+    subjectId: "",
+    file: null,
+  });
 
   useEffect(() => {
-    fetchFiles(); // Lấy danh sách file khi component được mount
+    fetchFiles();
   }, []);
 
   const handleSubTabChange = (event, newValue) => {
@@ -54,7 +81,6 @@ export const FilesTab = () => {
   const handleFileChange = (event) => {
     const selectedFiles = Array.from(event.target.files);
     setFiles(selectedFiles);
-    // Handle file upload logic here
     uploadFiles(selectedFiles);
   };
 
@@ -62,7 +88,6 @@ export const FilesTab = () => {
     event.preventDefault();
     const droppedFiles = Array.from(event.dataTransfer.files);
     setFiles(droppedFiles);
-    // Handle file upload logic here
     uploadFiles(droppedFiles);
   };
 
@@ -76,9 +101,9 @@ export const FilesTab = () => {
 
   const uploadFiles = async (files) => {
     try {
-      const fileUrls = await uploadMultipleFilesToFirebase(files); // Sử dụng hàm từ firebaseUtils
+      const fileUrls = await uploadMultipleFilesToFirebase(files);
       console.log("Files uploaded successfully. URLs:", fileUrls);
-      // Bạn có thể lưu các URL này vào Firestore hoặc thực hiện các hành động khác
+      fetchFiles();
     } catch (error) {
       console.error("Error uploading files:", error);
     }
@@ -86,45 +111,88 @@ export const FilesTab = () => {
 
   const fetchFiles = async () => {
     try {
-      const files = await getFilesFromFirebase(); // Lấy danh sách file từ Firebase
-      console.log(">>>check files: ", files);
-      setFileList(files); // Cập nhật state
+      const files = await getFilesFromFirebase();
+      setFileList(files);
     } catch (error) {
       console.error("Error fetching files:", error);
     }
   };
 
-  // Hàm xử lý xóa file
   const handleDeleteFile = async (fileId) => {
     try {
-      // Tìm file cần xóa trong danh sách
       const fileToDelete = fileList.find((file) => file.stt === fileId);
-
       if (fileToDelete) {
-        // Gọi hàm xóa file từ Firebase
         await deleteFileFromFirebase({
-          name: fileToDelete.name, // Tên file (bắt buộc)
-          // Có thể thêm các trường khác nếu hàm deleteFileFromFirebase cần
+          name: fileToDelete.name,
         });
-
-        // Cập nhật lại danh sách file sau khi xóa
         setFileList(fileList.filter((file) => file.stt !== fileId));
-        console.log("File deleted successfully");
       }
     } catch (error) {
       console.error("Error deleting file:", error);
     }
   };
 
+  const handleOpenModal = () => {
+    setOpenModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
+    setFormData({
+      fileName: "",
+      majorId: "",
+      subjectId: "",
+      file: null,
+    });
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    setFormData({
+      ...formData,
+      file: file,
+      fileName: file ? file.name : "",
+    });
+  };
+
+  const handleSubmit = async () => {
+    try {
+      if (formData.file) {
+        // Upload file và lưu thông tin phân loại
+        const fileUrl = await uploadFileToFirebase(formData.file);
+        console.log("File uploaded with classification:", {
+          ...formData,
+          url: fileUrl,
+        });
+        fetchFiles();
+        handleCloseModal();
+      }
+    } catch (error) {
+      console.error("Error uploading classified file:", error);
+    }
+  };
+
+  const filteredSubjects = formData.majorId
+    ? subjects.filter((subject) => subject.majorId == formData.majorId)
+    : [];
+
   const columns = [
-    { field: "stt", headerName: "STT", width: 80 }, // Cột STT
-    { field: "name", headerName: "Tên file", width: 400 }, // Cột Tên file
-    { field: "size", headerName: "Kích thước", width: 120 }, // Cột Kích thước
-    { field: "createdAt", headerName: "Ngày tải lên", width: 150 }, // Cột Ngày tải lên
+    { field: "stt", headerName: "STT", width: 80 },
+    { field: "name", headerName: "Tên file", width: 400 },
+    { field: "size", headerName: "Kích thước", width: 120 },
+    { field: "createdAt", headerName: "Ngày tải lên", width: 150 },
     {
       field: "actions",
       headerName: "Thao tác",
-      width: 100,
+      width: 200,
       sortable: false,
       filterable: false,
       disableColumnMenu: true,
@@ -141,168 +209,140 @@ export const FilesTab = () => {
   ];
 
   const rows = fileList.map((file) => ({
-    id: file.stt, // Sử dụng STT làm ID duy nhất
-    stt: file.stt, // STT
-    name: file.name, // Tên file
-    size: file.size, // Kích thước
-    createdAt: file.createdAt, // Ngày tải lên
+    id: file.stt,
+    stt: file.stt,
+    name: file.name,
+    size: file.size,
+    createdAt: file.createdAt,
   }));
 
   return (
     <Box sx={{ padding: 2 }}>
-      {/* Sub Tabs */}
-      {/* <Tabs
-        value={subTabValue}
-        onChange={handleSubTabChange}
-        textColor="inherit"
-      >
-        <Tab label="File Collection" />
-        <Tab label="GraphRAG Collection" />
-      </Tabs> */}
+      <Box display="flex" justifyContent="flex-end" mb={2}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleOpenModal}
+          sx={{
+            backgroundColor: "#00C853",
+            "&:hover": { backgroundColor: "#089242" },
+          }}
+        >
+          Thêm tài liệu
+        </Button>
+      </Box>
 
       <Divider sx={{ mt: 2, mb: 3, bgcolor: "gray" }} />
 
-      {/* File Upload and List */}
-      <Box display="flex" gap={3}>
-        {/* File Upload Section */}
-        <Box width="30%">
-          <FileUploadContainer
-            onClick={handleUploadClick}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            sx={{ cursor: "pointer" }}
-          >
-            <CloudUploadIcon fontSize="large" />
-            <Typography variant="body1" sx={{ mt: 2, mb: 2 }}>
-              Drop File Here <br /> - or - <br /> Click to Upload
-            </Typography>
-            <Typography variant="caption" color="gray">
-              Supported file types: .pdf .docx.
-            </Typography>
-            <Typography variant="caption" color="gray">
-              Maximum file size: 1000 MB
-            </Typography>
-          </FileUploadContainer>
-
-          {/* Hidden file input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            style={{ display: "none" }}
-            onChange={handleFileChange}
-            multiple
-          />
-
-          {/* Advanced Options */}
-          {/* <Typography variant="body2" color="white" sx={{ mb: 1 }}>
-            Advanced indexing options
-          </Typography>
-          <FormControlLabel
-            control={<Checkbox color="secondary" />}
-            label={
-              <Typography variant="caption" color="gray">
-                Force reindex file
-              </Typography>
-            }
-            sx={{ ml: 1 }}
-          /> */}
-
-          {/* Upload Button */}
-          {/* <Button
-            variant="contained"
-            color="secondary"
-            fullWidth
-            sx={{ mt: 2, bgcolor: "#00C853", color: "black" }}
-            onClick={handleUploadClick}
-          >
-            Upload and Index
-          </Button> */}
-        </Box>
-
-        {/* File List Section */}
-        <Box width="70%">
-          {/* <Typography variant="h6" sx={{ color: "white", mb: 2 }}>
-            File List
-          </Typography> */}
-
-          {/* Filter Input */}
-          {/* <TextField
-            placeholder="Filter by name"
-            fullWidth
-            variant="outlined"
-            size="small"
+      <Box width="100%">
+        <Box sx={{ height: 500, width: "100%", backgroundColor: "#1e1e1e" }}>
+          <DataGrid
+            rows={rows}
+            columns={columns}
+            pageSize={5}
+            disableSelectionOnClick
+            hideFooterSelectedRowCount
             sx={{
-              mb: 2,
-              bgcolor: "#333",
-              "& .MuiOutlinedInput-root": {
+              "& .MuiDataGrid-cell": {
                 color: "white",
               },
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#555",
+              "& .MuiDataGrid-columnHeaders": {
+                backgroundColor: "#333",
+                color: "#b3b3b3",
               },
-              "& .MuiInputBase-input": {
+              "& .MuiDataGrid-footerContainer": {
+                backgroundColor: "#333",
                 color: "#b3b3b3",
               },
             }}
-          /> */}
-
-          {/* File List DataGrid */}
-          <Box sx={{ height: 500, width: "100%", backgroundColor: "#1e1e1e" }}>
-            <DataGrid
-              rows={rows}
-              columns={columns}
-              pageSize={5}
-              disableSelectionOnClick
-              hideFooterSelectedRowCount
-              sx={{
-                "& .MuiDataGrid-cell": {
-                  color: "white",
-                },
-                "& .MuiDataGrid-columnHeaders": {
-                  backgroundColor: "#333",
-                  color: "#b3b3b3",
-                },
-                "& .MuiDataGrid-footerContainer": {
-                  backgroundColor: "#333",
-                  color: "#b3b3b3",
-                },
-              }}
-            />
-          </Box>
-
-          {/* Selected file info and advanced options */}
-          {/* <Box mt={2}>
-            <Typography variant="body2" color="white" sx={{ mb: 1 }}>
-              Selected file: (please select above)
-            </Typography>
-            <TextField
-              placeholder="Advance options"
-              fullWidth
-              variant="outlined"
-              size="small"
-              sx={{
-                bgcolor: "#333",
-                "& .MuiOutlinedInput-root": {
-                  color: "white",
-                },
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "#555",
-                },
-                "& .MuiInputBase-input": {
-                  color: "#b3b3b3",
-                },
-              }}
-              InputProps={{
-                endAdornment: (
-                  <IconButton>
-                    <FolderIcon sx={{ color: "#b3b3b3" }} />
-                  </IconButton>
-                ),
-              }}
-            />
-          </Box> */}
+          />
         </Box>
       </Box>
+
+      {/* Modal thêm tài liệu mới */}
+      <Dialog
+        open={openModal}
+        onClose={handleCloseModal}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Thêm tài liệu mới</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Tên file"
+              name="fileName"
+              value={formData.fileName}
+              onChange={handleFormChange}
+              sx={{ mb: 2 }}
+              InputProps={{
+                readOnly: true,
+              }}
+            />
+
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Chuyên ngành</InputLabel>
+              <Select
+                name="majorId"
+                value={formData.majorId}
+                onChange={handleFormChange}
+                label="Chuyên ngành"
+              >
+                {majors.map((major) => (
+                  <MenuItem key={major.id} value={major.id}>
+                    {major.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Môn học</InputLabel>
+              <Select
+                name="subjectId"
+                value={formData.subjectId}
+                onChange={handleFormChange}
+                label="Môn học"
+                disabled={!formData.majorId}
+              >
+                {filteredSubjects.map((subject) => (
+                  <MenuItem key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Button
+              variant="contained"
+              component="label"
+              startIcon={<CloudUploadIcon />}
+              fullWidth
+            >
+              Chọn file
+              <input
+                type="file"
+                hidden
+                onChange={handleFileUpload}
+                accept="application/pdf"
+              />
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseModal}>Hủy</Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            disabled={
+              !formData.file || !formData.majorId || !formData.subjectId
+            }
+          >
+            Lưu
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

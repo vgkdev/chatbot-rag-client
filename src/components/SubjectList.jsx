@@ -4,6 +4,17 @@ import {
   TextField,
   IconButton,
   InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Checkbox,
+  FormControlLabel,
+  List,
+  ListItem,
+  Chip,
+  Typography,
+  CircularProgress,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { Delete, Edit, Search } from "@mui/icons-material";
@@ -11,39 +22,111 @@ import React, { useState, useEffect } from "react";
 import {
   addSubject,
   deleteSubject,
+  getMajors,
   subscribeToSubjects,
   updateSubject,
 } from "../servers/firebaseUtils";
-import { EditModal } from "./EditModal";
 
 export const SubjectList = () => {
   const [newSubject, setNewSubject] = useState("");
   const [subjects, setSubjects] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(true);
-  const [editModalOpen, setEditModalOpen] = useState(false);
+  // const [editModalOpen, setEditModalOpen] = useState(false);
+  // const [addModalOpen, setAddModalOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [currentEdit, setCurrentEdit] = useState({
     id: "",
     name: "",
   });
+  const [isSaving, setIsSaving] = useState(false);
+  // Danh sách chuyên ngành (có thể lấy từ Firebase)
+  const [majors, setMajors] = useState([]);
+
+  // State cho form thêm mới
+  const [currentSubject, setCurrentSubject] = useState({
+    id: "",
+    name: "",
+    majors: [],
+    isBasic: false,
+  });
 
   useEffect(() => {
     const unsubscribe = subscribeToSubjects((subjects) => {
-      // console.log(">>>check subjects:", subjects[0].createdAt.seconds);
       setSubjects(subjects);
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  const handleAddSubject = async () => {
-    if (newSubject.trim() === "") return;
+  //get majors from firebase
+  useEffect(() => {
+    const fetchMajors = async () => {
+      try {
+        const majorsData = await getMajors();
+        setMajors(majorsData);
+      } catch (error) {
+        console.error("Error fetching majors:", error);
+      }
+    };
+    fetchMajors();
+  }, []);
+
+  const handleAddSubjectClick = () => {
+    setCurrentSubject({
+      id: "",
+      name: "",
+      majors: [],
+      isBasic: false,
+    });
+    setIsEditMode(false);
+    setModalOpen(true);
+  };
+
+  const handleSaveSubject = async () => {
+    if (currentSubject.name.trim() === "") {
+      alert("Vui lòng nhập tên môn học");
+      return;
+    }
+
+    if (!currentSubject.isBasic && currentSubject.majors.length === 0) {
+      alert(
+        "Vui lòng chọn ít nhất một chuyên ngành hoặc đánh dấu là môn cơ sở"
+      );
+      return;
+    }
+
+    setIsSaving(true);
+
     try {
-      await addSubject(newSubject);
-      setNewSubject("");
+      const subjectData = {
+        name: currentSubject.name.trim(),
+        majors: currentSubject.majors,
+        isBasic: currentSubject.isBasic,
+        createdAt: isEditMode ? currentSubject.createdAt : new Date(),
+      };
+
+      if (isEditMode) {
+        await updateSubject(currentSubject.id, subjectData);
+      } else {
+        await addSubject(subjectData);
+      }
+
+      setModalOpen(false);
     } catch (error) {
-      console.error("Error adding subject:", error);
-      // You might want to show an error message to the user here
+      console.error(
+        `Error ${isEditMode ? "updating" : "adding"} subject:`,
+        error
+      );
+    } finally {
+      setIsSaving(false);
+      setCurrentSubject({
+        id: "",
+        name: "",
+        majors: [],
+        isBasic: false,
+      });
     }
   };
 
@@ -52,16 +135,18 @@ export const SubjectList = () => {
       await deleteSubject(subjectId);
     } catch (error) {
       console.error("Error deleting subject:", error);
-      // You might want to show an error message to the user here
     }
   };
 
   const handleEditClick = (subject) => {
-    setCurrentEdit({
+    setCurrentSubject({
       id: subject.id,
       name: subject.name,
+      majors: subject.majors || [],
+      isBasic: subject.isBasic || false,
     });
-    setEditModalOpen(true);
+    setIsEditMode(true);
+    setModalOpen(true);
   };
 
   const handleUpdateSubject = async (newName) => {
@@ -69,8 +154,30 @@ export const SubjectList = () => {
       await updateSubject(currentEdit.id, newName);
     } catch (error) {
       console.error("Error updating subject:", error);
-      // Có thể thêm thông báo lỗi ở đây
     }
+  };
+
+  // Xử lý chọn/bỏ chọn chuyên ngành
+  const handleMajorToggle = (major) => {
+    // Nếu là môn cơ sở ngành thì không cho chọn chuyên ngành
+    if (currentSubject.isBasic) return;
+
+    setCurrentSubject((prev) => {
+      const isSelected = prev.majors.some((m) => m.id === major.id);
+      const newMajors = isSelected
+        ? prev.majors.filter((m) => m.id !== major.id)
+        : [...prev.majors, major];
+      return { ...prev, majors: newMajors };
+    });
+  };
+
+  const handleBasicChange = (e) => {
+    const isBasic = e.target.checked;
+    setCurrentSubject((prev) => ({
+      ...prev,
+      isBasic,
+      majors: isBasic ? [] : prev.majors, // Nếu chọn cơ sở ngành thì xóa hết majors đã chọn
+    }));
   };
 
   const filteredSubjects = subjects.filter((subject) =>
@@ -94,42 +201,62 @@ export const SubjectList = () => {
       ),
     },
     {
+      field: "majors",
+      headerName: "Chuyên ngành",
+      width: 500,
+      renderCell: (params) => (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "4px",
+            paddingTop: "4px",
+          }}
+        >
+          {params.row.isBasic ? (
+            <Chip
+              label="CƠ SỞ NGÀNH"
+              size="small"
+              sx={{
+                backgroundColor: "#00C853",
+
+                color: "white",
+                fontWeight: "bold",
+                fontSize: "0.75rem",
+              }}
+            />
+          ) : (
+            params.row.majors?.map((major) => (
+              <Chip
+                key={major.id}
+                label={major.name}
+                size="small"
+                sx={{
+                  backgroundColor: "#333",
+                  color: "white",
+                  fontSize: "0.75rem",
+                }}
+              />
+            ))
+          )}
+        </div>
+      ),
+    },
+    {
       field: "createdAt",
       headerName: "Ngày tạo",
       width: 150,
       valueFormatter: (params) => {
         try {
-          // Kiểm tra và xử lý mọi trường hợp có thể
-          const timestamp = params;
-          // console.log(">>>check timestamp:", params.seconds);
-
-          if (!timestamp) return "N/A";
-
-          // Trường hợp 1: Là Timestamp object của Firebase
-          if (typeof timestamp.toDate === "function") {
-            return timestamp.toDate().toLocaleDateString("vi-VN");
+          if (params.toDate) {
+            return params.toDate().toLocaleDateString("vi-VN");
           }
-
-          // Trường hợp 2: Là object {seconds, nanoseconds}
-          if (timestamp.seconds && typeof timestamp.seconds === "number") {
-            return new Date(timestamp.seconds * 1000).toLocaleDateString(
-              "vi-VN"
-            );
+          if (params.seconds) {
+            return new Date(params.seconds * 1000).toLocaleDateString("vi-VN");
           }
-
-          // Trường hợp 3: Là chuỗi ISO
-          if (typeof timestamp === "string") {
-            return new Date(timestamp).toLocaleDateString("vi-VN");
-          }
-
-          // Trường hợp 4: Là số epoch
-          if (typeof timestamp === "number") {
-            return new Date(timestamp).toLocaleDateString("vi-VN");
-          }
-
           return "N/A";
         } catch (error) {
-          console.error("Error formatting date:", error, params.value);
+          console.error("Error formatting date:", error);
           return "N/A";
         }
       },
@@ -170,24 +297,9 @@ export const SubjectList = () => {
     >
       {/* Add Subject Section */}
       <Box sx={{ display: "flex", gap: 2 }}>
-        <TextField
-          label="Tên môn học mới"
-          variant="outlined"
-          size="small"
-          fullWidth
-          value={newSubject}
-          onChange={(e) => setNewSubject(e.target.value)}
-          sx={{ backgroundColor: "#1E1E1E", borderRadius: 1, height: "100%" }}
-          InputProps={{
-            style: { color: "white" },
-          }}
-          InputLabelProps={{
-            style: { color: "gray" },
-          }}
-        />
         <Button
           variant="contained"
-          onClick={handleAddSubject}
+          onClick={handleAddSubjectClick}
           sx={{
             backgroundColor: "#00C853",
             "&:hover": { backgroundColor: "#089242" },
@@ -246,14 +358,117 @@ export const SubjectList = () => {
           }}
         />
       </Box>
-      <EditModal
-        open={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        title="Chỉnh sửa môn học"
-        label="Tên môn học"
-        initialValue={currentEdit.name}
-        onSave={handleUpdateSubject}
-      />
+
+      {/* Modal thêm môn học mới */}
+      <Dialog
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          {isEditMode ? "Chỉnh sửa môn học" : "Thêm môn học mới"}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Tên môn học"
+              value={currentSubject.name}
+              onChange={(e) =>
+                setCurrentSubject({ ...currentSubject, name: e.target.value })
+              }
+              sx={{ mb: 3 }}
+              InputProps={{
+                style: { color: "white" },
+              }}
+              InputLabelProps={{
+                style: { color: "gray" },
+              }}
+            />
+
+            <Typography variant="subtitle1" sx={{ mb: 1, color: "white" }}>
+              Chọn chuyên ngành:
+            </Typography>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={currentSubject.isBasic || false}
+                  onChange={handleBasicChange}
+                  sx={{
+                    "&.Mui-checked": {
+                      color: "#00C853",
+                    },
+                  }}
+                />
+              }
+              label="Môn cơ sở ngành"
+              sx={{ mb: 2 }}
+            />
+            <List
+              sx={{
+                maxHeight: 200,
+                overflow: "auto",
+                backgroundColor: "#1E1E1E",
+                borderRadius: 1,
+                p: 1,
+              }}
+            >
+              {majors.map((major) => (
+                <ListItem key={major.id} disablePadding>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={currentSubject.majors.some(
+                          (m) => m.id === major.id
+                        )}
+                        onChange={() => handleMajorToggle(major)}
+                        disabled={currentSubject.isBasic} // Disable nếu là môn cơ sở
+                        sx={{
+                          color: "white",
+                          "&.Mui-checked": {
+                            color: "#00C853",
+                          },
+                          "&.Mui-disabled": { color: "text.disabled" },
+                        }}
+                      />
+                    }
+                    label={major.name}
+                    sx={{
+                      color: currentSubject.isBasic
+                        ? "text.disabled"
+                        : "text.primary",
+                    }}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModalOpen(false)} sx={{ color: "white" }}>
+            Hủy
+          </Button>
+          <Button
+            onClick={handleSaveSubject}
+            variant="contained"
+            disabled={!currentSubject.name.trim() || isSaving}
+            sx={{
+              backgroundColor: "#00C853",
+              "&:hover": { backgroundColor: "#089242" },
+              minWidth: 100,
+            }}
+          >
+            {isSaving ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : isEditMode ? (
+              "Cập nhật"
+            ) : (
+              "Thêm"
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
