@@ -245,6 +245,7 @@ export const addSubject = async (subjectData) => {
     const subjectToAdd = {
       name: subjectData.name.trim(),
       majors: subjectData.majors || [], // Mảng các object {id, name}
+      isBasic: subjectData.isBasic || false, // Boolean để xác định môn cơ bản
       // majorIds: subjectData.majors ? subjectData.majors.map((m) => m.id) : [], // Mảng các id để dễ query
       createdAt: new Date(),
     };
@@ -349,4 +350,118 @@ export const updateMajor = async (majorId, newName) => {
     console.error("Error updating major:", error);
     throw error;
   }
+};
+
+/**
+ * Thêm tài liệu mới vào Firestore
+ * @param {Object} documentData - Dữ liệu tài liệu
+ * @returns {Promise<string>} - ID của tài liệu vừa được thêm
+ */
+export const addDocument = async (documentData) => {
+  try {
+    const documentsRef = collection(db, "system", "documents", "items");
+    const docRef = await addDoc(documentsRef, {
+      name: documentData.name,
+      url: documentData.url,
+      subject: documentData.subject || null,
+      createdAt: new Date(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error("Error adding document:", error);
+    throw error;
+  }
+};
+
+/**
+ * Lấy tất cả tài liệu từ Firestore
+ * @returns {Promise<Array>} - Danh sách tài liệu
+ */
+export const getDocuments = async () => {
+  try {
+    const documentsRef = collection(db, "system", "documents", "items");
+    const querySnapshot = await getDocs(documentsRef);
+    return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Error getting documents:", error);
+    throw error;
+  }
+};
+
+/**
+ * Lấy tài liệu theo ID
+ * @param {string} documentId - ID của tài liệu
+ * @returns {Promise<Object>} - Thông tin tài liệu
+ */
+export const getDocumentById = async (documentId) => {
+  try {
+    const docRef = doc(db, "system", "documents", "items", documentId);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() };
+    } else {
+      throw new Error("Document not found");
+    }
+  } catch (error) {
+    console.error("Error getting document:", error);
+    throw error;
+  }
+};
+
+/**
+ * Cập nhật tài liệu
+ * @param {string} documentId - ID của tài liệu
+ * @param {Object} updateData - Dữ liệu cập nhật
+ * @returns {Promise<void>}
+ */
+export const updateDocument = async (documentId, updateData) => {
+  try {
+    const docRef = doc(db, "system", "documents", "items", documentId);
+    console.log(">>>check updateData: ", updateData);
+    await setDoc(
+      docRef,
+      {
+        name: updateData.name,
+        subject: updateData.subject,
+        url: updateData.url,
+        // createdAt: updateData.createdAt,
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.error("Error updating document:", error);
+    throw error;
+  }
+};
+
+/**
+ * Xóa tài liệu
+ * @param {string} documentId - ID của tài liệu
+ * @returns {Promise<void>}
+ */
+export const deleteDocument = async (documentId) => {
+  try {
+    const docRef = doc(db, "system", "documents", "items", documentId);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting document:", error);
+    throw error;
+  }
+};
+
+/**
+ * Lắng nghe thay đổi trên collection documents
+ * @param {Function} callback - Hàm callback khi có thay đổi
+ * @returns {Function} - Hàm unsubscribe
+ */
+export const subscribeToDocuments = (callback) => {
+  const documentsRef = collection(db, "system", "documents", "items");
+  return onSnapshot(documentsRef, (snapshot) => {
+    const documents = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    callback(documents);
+  });
 };
