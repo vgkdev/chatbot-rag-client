@@ -7,6 +7,7 @@ import {
   getDoc,
   deleteDoc,
   onSnapshot,
+  updateDoc,
 } from "firebase/firestore";
 import {
   ref,
@@ -18,6 +19,33 @@ import {
 } from "firebase/storage";
 import { db, storage } from "../configs/firebase";
 import readPdfFile from "../utils/readPdfFile";
+
+export const updateUserProfile = async (userId, userData) => {
+  try {
+    // Prepare the data to be saved in Firebase
+    const firebaseUserData = {
+      userName: userData.userName,
+      email: userData.email,
+      role: userData.role || 0, // Default to role 0 if not provided
+      major: userData.major,
+      userId: userId, // Include userId in the document
+    };
+
+    await updateDoc(doc(db, "users", userId), firebaseUserData);
+
+    // Return the complete user data including all fields
+    return {
+      userId,
+      userName: userData.userName,
+      email: userData.email,
+      role: userData.role || 0,
+      major: userData.major,
+    };
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    throw error;
+  }
+};
 
 export const saveChatToFirebase = async (
   userId,
@@ -171,18 +199,21 @@ export const getFilesFromFirebase = async (folderPath = "uploads") => {
  * @param {string} folderPath - Đường dẫn thư mục trong Firebase Storage (mặc định: "uploads")
  * @returns {Promise<boolean>} - Trả về true nếu xóa thành công
  */
-export const deleteFileFromFirebase = async (file, folderPath = "uploads") => {
+export const deleteFileFromFirebase = async (
+  fileName,
+  folderPath = "uploads"
+) => {
   try {
     // Tạo reference tới file cần xóa
-    const fileRef = ref(storage, `${folderPath}/${file.name}`);
+    const fileRef = ref(storage, `${folderPath}/${fileName}`);
 
     // Thực hiện xóa file
     await deleteObject(fileRef);
 
-    console.log(`File ${file.name} deleted successfully`);
+    console.log(`File ${fileName} deleted successfully`);
     return true;
   } catch (error) {
-    console.error(`Error deleting file ${file.name}:`, error);
+    console.error(`Error deleting file ${fileName}:`, error);
     throw error; // Ném lỗi để xử lý ở nơi gọi hàm
   }
 };
@@ -362,6 +393,7 @@ export const addDocument = async (documentData) => {
     const documentsRef = collection(db, "system", "documents", "items");
     const docRef = await addDoc(documentsRef, {
       name: documentData.name,
+      fileName: documentData.fileName,
       url: documentData.url,
       subject: documentData.subject || null,
       createdAt: new Date(),

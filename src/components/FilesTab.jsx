@@ -37,7 +37,7 @@ export const FilesTab = () => {
   const [openModal, setOpenModal] = useState(false);
   const [subjects, setSubjects] = useState([]);
   const [formData, setFormData] = useState({
-    fileName: "",
+    name: "",
     subject: null,
     file: null,
   });
@@ -66,7 +66,7 @@ export const FilesTab = () => {
   useEffect(() => {
     if (openUpdateModal && currentDocument) {
       setFormData({
-        fileName: currentDocument.name,
+        name: currentDocument.name,
         subject: currentDocument.subject,
       });
     }
@@ -98,10 +98,7 @@ export const FilesTab = () => {
       const fileToDelete = fileList.find((file) => file.id === fileId);
       if (fileToDelete) {
         // Xóa file từ Storage
-        await deleteFileFromFirebase({
-          name: fileToDelete.name,
-          url: fileToDelete.url,
-        });
+        await deleteFileFromFirebase(fileToDelete.fileName);
 
         // Xóa document từ Firestore (cần thêm hàm deleteDocument trong firebaseUtils)
         await deleteDocument(fileId);
@@ -121,7 +118,7 @@ export const FilesTab = () => {
   const handleCloseModal = () => {
     setOpenModal(false);
     setFormData({
-      fileName: "",
+      name: "",
       subject: {},
       file: null,
     });
@@ -149,7 +146,7 @@ export const FilesTab = () => {
     setFormData({
       ...formData,
       file: file,
-      // fileName: file ? file.name : "",
+      // name: file ? file.name : "",
     });
   };
 
@@ -165,7 +162,8 @@ export const FilesTab = () => {
         });
 
         await addDocument({
-          name: formData.fileName || formData.file.name,
+          name: formData.name,
+          fileName: formData.file.name,
           url: fileUrl,
           subject: formData.subject || null,
         });
@@ -178,7 +176,7 @@ export const FilesTab = () => {
     } finally {
       setIsUpLoading(false);
       setFormData({
-        fileName: "",
+        name: "",
         subject: null,
         file: null,
       });
@@ -192,7 +190,7 @@ export const FilesTab = () => {
         console.log(">>>check currentDocument:", currentDocument);
         console.log(">>>check formData:", formData);
         const updateData = {
-          name: formData.fileName || currentDocument.name,
+          name: formData.name || currentDocument.name,
           subject: {
             ...formData.subject, // Giữ nguyên các trường khác của subject
             id: formData.subject?.id || currentDocument.subject.id,
@@ -213,7 +211,7 @@ export const FilesTab = () => {
     } finally {
       setIsUpLoading(false);
       setFormData({
-        fileName: "",
+        name: "",
         subject: null,
         file: null,
       });
@@ -367,8 +365,8 @@ export const FilesTab = () => {
             <TextField
               fullWidth
               label="Tên file"
-              name="fileName"
-              value={formData.fileName}
+              name="name"
+              value={formData.name}
               onChange={handleFormChange}
               sx={{ mb: 2 }}
               // InputProps={{
@@ -441,8 +439,8 @@ export const FilesTab = () => {
             <TextField
               fullWidth
               label="Tên file"
-              name="fileName"
-              value={formData.fileName || currentDocument?.name || ""}
+              name="name"
+              value={formData.name || currentDocument?.name || ""}
               onChange={handleFormChange}
               sx={{ mb: 2 }}
             />

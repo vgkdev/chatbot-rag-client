@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import {
   Box,
   Button,
@@ -6,57 +6,82 @@ import {
   Typography,
   Alert,
   CircularProgress,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Grid,
+  Paper,
+  Link,
 } from "@mui/material";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../configs/firebase";
 import { doc, setDoc } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link as RouterLink } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
+import { getMajors } from "../servers/firebaseUtils";
 
 export const RegisterPage = () => {
   const { setUser } = useContext(UserContext);
-
-  // Individual states for form fields
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  // Individual states for errors
-  const [usernameError, setUsernameError] = useState(false);
-  const [emailError, setEmailError] = useState(false);
-  const [passwordError, setPasswordError] = useState(false);
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    password: "",
+    major: null,
+  });
+  const [errors, setErrors] = useState({
+    username: false,
+    email: false,
+    password: false,
+    major: false,
+  });
   const [loading, setLoading] = useState(false);
-
-  // Success message
   const [successMessage, setSuccessMessage] = useState("");
-
+  const [errorMessage, setErrorMessage] = useState("");
+  const [majors, setMajors] = useState([]);
   const navigate = useNavigate();
 
+  // Fetch majors from Firebase
+  useEffect(() => {
+    const fetchMajors = async () => {
+      try {
+        const majorsData = await getMajors();
+        setMajors(majorsData);
+      } catch (error) {
+        console.error("Error fetching majors:", error);
+        setErrorMessage("Failed to load majors. Please refresh the page.");
+      }
+    };
+    fetchMajors();
+  }, []);
+
   const validateForm = () => {
-    let isValid = true;
+    const newErrors = {
+      username: formData.username === "",
+      email: formData.email === "" || !/^\S+@\S+\.\S+$/.test(formData.email),
+      password: formData.password === "" || formData.password.length < 6,
+      major: formData.major === null,
+    };
+    setErrors(newErrors);
+    return !Object.values(newErrors).some(Boolean);
+  };
 
-    if (username === "") {
-      setUsernameError(true);
-      isValid = false;
-    } else {
-      setUsernameError(false);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: false }));
     }
+  };
 
-    if (email === "" || !/^\S+@\S+\.\S+$/.test(email)) {
-      setEmailError(true);
-      isValid = false;
-    } else {
-      setEmailError(false);
+  const handleMajorChange = (event) => {
+    const selectedMajorId = event.target.value;
+    const selectedMajor = majors.find((major) => major.id === selectedMajorId);
+    setFormData((prev) => ({ ...prev, major: selectedMajor }));
+    if (errors.major) {
+      setErrors((prev) => ({ ...prev, major: false }));
     }
-
-    if (password === "" || password.length < 6) {
-      setPasswordError(true);
-      isValid = false;
-    } else {
-      setPasswordError(false);
-    }
-
-    return isValid;
   };
 
   const handleSubmit = async (e) => {
@@ -64,193 +89,281 @@ export const RegisterPage = () => {
     if (validateForm()) {
       try {
         setLoading(true);
+        setErrorMessage("");
+
         const userCredential = await createUserWithEmailAndPassword(
           auth,
-          email,
-          password
+          formData.email,
+          formData.password
         );
-        const user = userCredential.user;
-        console.log(">>>check user: ", user);
 
-        // Thêm role mặc định là 0
+        const user = userCredential.user;
         const userData = {
           userId: user.uid,
-          userName: username,
+          userName: formData.username,
           email: user.email,
-          role: 0, // Thêm role mặc định ở đây
+          role: 0,
+          major: formData.major,
         };
 
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
 
-        // Lưu thông tin vào Firestore, bao gồm cả role
         await setDoc(doc(db, "users", user.uid), userData);
 
         setLoading(false);
-        setSuccessMessage("Registration Successful!");
-        setUsername("");
-        setEmail("");
-        setPassword("");
+        setSuccessMessage("Registration Successful! Redirecting...");
 
+        // setTimeout(() => navigate("/homepage"), 2000);
         navigate("/homepage");
       } catch (error) {
-        console.error(">>>check error: ", error.message);
-        setSuccessMessage("");
+        console.error("Registration error:", error.message);
+        setErrorMessage(
+          error.message || "Registration failed. Please try again."
+        );
         setLoading(false);
       }
-    } else {
-      setSuccessMessage("");
     }
   };
 
   return (
-    <Box
+    <Grid
+      container
+      component="main"
       sx={{
+        minHeight: "100vh",
+        backgroundImage: "linear-gradient(135deg, #121212 0%, #1e1e1e 100%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: "100vh",
-        backgroundColor: "#121212",
-        color: "white",
+        p: 2,
       }}
     >
-      <Box
-        sx={{
-          width: 400,
-          padding: 3,
-          backgroundColor: "#1e1e1e",
-          borderRadius: 2,
-          boxShadow: "0 4px 10px rgba(0, 0, 0, 0.5)",
-        }}
-      >
-        <Typography variant="h5" sx={{ mb: 3, textAlign: "center" }}>
-          Register
-        </Typography>
-
-        {successMessage && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {successMessage}
-          </Alert>
-        )}
-
-        <>
-          <TextField
-            label="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            error={usernameError}
-            helperText={usernameError && "Username is required"}
-            fullWidth
-            variant="outlined"
-            size="small"
+      <Grid item xs={12} sm={8} md={6} lg={4}>
+        <Paper
+          elevation={10}
+          sx={{
+            p: 4,
+            borderRadius: 4,
+            backgroundColor: "rgba(30, 30, 30, 0.9)",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+          }}
+        >
+          <Box
             sx={{
-              mb: 2,
-              "& .MuiOutlinedInput-root": {
-                color: "white",
-              },
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#555",
-              },
-              "& .MuiFormHelperText-root": {
-                color: "red",
-              },
-              "& .MuiInputLabel-root": {
-                color: "#b3b3b3",
-              },
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
             }}
-          />
-
-          <TextField
-            label="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={emailError}
-            helperText={emailError && "Enter a valid email"}
-            fullWidth
-            variant="outlined"
-            size="small"
-            sx={{
-              mb: 2,
-              "& .MuiOutlinedInput-root": {
-                color: "white",
-              },
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#555",
-              },
-              "& .MuiFormHelperText-root": {
-                color: "red",
-              },
-              "& .MuiInputLabel-root": {
-                color: "#b3b3b3",
-              },
-            }}
-          />
-
-          <TextField
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={passwordError}
-            helperText={
-              passwordError && "Password must be at least 6 characters long"
-            }
-            fullWidth
-            variant="outlined"
-            size="small"
-            sx={{
-              mb: 3,
-              "& .MuiOutlinedInput-root": {
-                color: "white",
-              },
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#555",
-              },
-              "& .MuiFormHelperText-root": {
-                color: "red",
-              },
-              "& .MuiInputLabel-root": {
-                color: "#b3b3b3",
-              },
-            }}
-          />
-
-          {loading ? (
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              disabled
+          >
+            <Typography
+              component="h1"
+              variant="h4"
               sx={{
-                bgcolor: "#00C853",
-                color: "black",
-                "&:hover": {
-                  bgcolor: "#00b84d",
-                },
+                mb: 3,
+                fontWeight: 700,
+                textAlign: "center",
               }}
             >
-              <CircularProgress size="30px" />
-            </Button>
-          ) : (
-            <Button
-              onClick={handleSubmit}
-              type="submit"
-              variant="contained"
-              color="primary"
-              fullWidth
-              sx={{
-                bgcolor: "#00C853",
-                color: "black",
-                "&:hover": {
-                  bgcolor: "#00b84d",
-                },
-              }}
+              Tạo tài khoản
+            </Typography>
+
+            {successMessage && (
+              <Alert severity="success" sx={{ width: "100%", mb: 3 }}>
+                {successMessage}
+              </Alert>
+            )}
+
+            {errorMessage && (
+              <Alert severity="error" sx={{ width: "100%", mb: 3 }}>
+                {errorMessage}
+              </Alert>
+            )}
+
+            <Box
+              component="form"
+              onSubmit={handleSubmit}
+              noValidate
+              sx={{ width: "100%" }}
             >
-              Register
-            </Button>
-          )}
-        </>
-      </Box>
-    </Box>
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                id="username"
+                label="Tên người dùng"
+                name="username"
+                autoComplete="username"
+                autoFocus
+                value={formData.username}
+                onChange={handleChange}
+                error={errors.username}
+                helperText={errors.username && "Username is required"}
+                sx={{
+                  mb: 2,
+                  "& .MuiOutlinedInput-root": {
+                    color: "white",
+                    "& fieldset": {
+                      borderColor: "#555",
+                    },
+                    "&:hover fieldset": {},
+                  },
+                  "& .MuiInputLabel-root": {
+                    color: "#b3b3b3",
+                  },
+                }}
+              />
+
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                id="email"
+                label="Email"
+                name="email"
+                autoComplete="email"
+                value={formData.email}
+                onChange={handleChange}
+                error={errors.email}
+                helperText={errors.email && "Please enter a valid email"}
+                sx={{
+                  mb: 2,
+                  "& .MuiOutlinedInput-root": {
+                    color: "white",
+                    "& fieldset": {
+                      borderColor: "#555",
+                    },
+                    "&:hover fieldset": {},
+                  },
+                  "& .MuiInputLabel-root": {
+                    color: "#b3b3b3",
+                  },
+                }}
+              />
+
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                name="password"
+                label="Mật khẩu"
+                type="password"
+                id="password"
+                autoComplete="new-password"
+                value={formData.password}
+                onChange={handleChange}
+                error={errors.password}
+                helperText={
+                  errors.password && "Password must be at least 6 characters"
+                }
+                sx={{
+                  mb: 2,
+                  "& .MuiOutlinedInput-root": {
+                    color: "white",
+                    "& fieldset": {
+                      borderColor: "#555",
+                    },
+                    "&:hover fieldset": {},
+                  },
+                  "& .MuiInputLabel-root": {
+                    color: "#b3b3b3",
+                  },
+                }}
+              />
+
+              <FormControl
+                fullWidth
+                margin="normal"
+                sx={{
+                  mb: 2,
+                  "& .MuiOutlinedInput-root": {
+                    color: "white",
+                    "& fieldset": {
+                      borderColor: "#555",
+                    },
+                    "&:hover fieldset": {},
+                  },
+                  "& .MuiInputLabel-root": {
+                    color: "#b3b3b3",
+                  },
+                }}
+              >
+                <InputLabel id="major-label">Chuyên ngành</InputLabel>
+                <Select
+                  labelId="major-label"
+                  id="major"
+                  name="major"
+                  value={formData.major?.id || ""}
+                  onChange={handleMajorChange}
+                  label="Major"
+                  error={errors.major}
+                  renderValue={(selected) => {
+                    if (!selected) return <em>Select your major</em>;
+                    const major = majors.find((m) => m.id === selected);
+                    return major?.name || selected;
+                  }}
+                >
+                  <MenuItem value="">
+                    <em>Chuyên ngành của bạn</em>
+                  </MenuItem>
+                  {majors.map((major) => (
+                    <MenuItem key={major.id} value={major.id}>
+                      {major.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.major && (
+                  <Typography variant="caption" color="error">
+                    Chuyên ngành là bắt buộc
+                  </Typography>
+                )}
+              </FormControl>
+
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={loading}
+                sx={{
+                  mt: 3,
+                  mb: 2,
+                  py: 1.5,
+                  color: "black",
+                  // fontWeight: "bold",
+                  "&:hover": {
+                    transform: "translateY(-2px)",
+                  },
+                  transition: "all 0.3s ease",
+                }}
+              >
+                {loading ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  "Đăng ký"
+                )}
+              </Button>
+
+              <Grid container justifyContent="flex-end">
+                <Grid item>
+                  <Link
+                    component={RouterLink}
+                    to="/login"
+                    variant="body2"
+                    sx={{
+                      "&:hover": {
+                        textDecoration: "underline",
+                      },
+                    }}
+                  >
+                    Đã có tài khoản? Đăng nhập
+                  </Link>
+                </Grid>
+              </Grid>
+            </Box>
+          </Box>
+        </Paper>
+      </Grid>
+    </Grid>
   );
 };

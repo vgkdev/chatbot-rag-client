@@ -102,7 +102,6 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
             id="account-menu"
             open={openMenu}
             onClose={handleClose}
-            onClick={handleClose}
             slotProps={{
               paper: {
                 elevation: 0,
@@ -138,7 +137,11 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
           >
             {user ? (
               <div>
-                <MenuItem onClick={handleClose}>
+                <MenuItem
+                  onClick={() => {
+                    navigate("/profile");
+                  }}
+                >
                   <Avatar />
                   <Typography sx={{ ml: "5px" }}>{user.userName}</Typography>
                 </MenuItem>

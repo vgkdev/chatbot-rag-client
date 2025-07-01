@@ -8,6 +8,11 @@ import {
   CircularProgress,
   FormControlLabel,
   Checkbox,
+  Link,
+  Paper,
+  Grid,
+  Divider,
+  Container,
 } from "@mui/material";
 import {
   signInWithEmailAndPassword,
@@ -16,7 +21,7 @@ import {
   browserSessionPersistence,
 } from "firebase/auth";
 import { auth, db } from "../configs/firebase";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link as RouterLink } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -54,7 +59,6 @@ export const LoginPage = () => {
       try {
         setLoading(true);
 
-        // Thiết lập persistence dựa trên remember me
         const persistence = remember
           ? browserLocalPersistence
           : browserSessionPersistence;
@@ -71,7 +75,6 @@ export const LoginPage = () => {
         const docSnap = await getDoc(docRef);
         const userData = docSnap.data();
 
-        // Lưu thông tin user và remember me
         setUser(userData);
         setRememberMe(remember);
 
@@ -80,7 +83,6 @@ export const LoginPage = () => {
           localStorage.setItem("rememberMe", "true");
         } else {
           localStorage.removeItem("rememberMe");
-          // Không xóa user ngay để tránh flash khi reload
         }
 
         setLoading(false);
@@ -94,101 +96,150 @@ export const LoginPage = () => {
   };
 
   return (
-    <Box
-      sx={
-        {
-          /* styles giữ nguyên */
-        }
-      }
+    <Container
+      maxWidth="sm"
+      sx={{
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
     >
-      <Box
-        sx={
-          {
-            /* styles giữ nguyên */
-          }
-        }
+      <Paper
+        elevation={6}
+        sx={{
+          width: "100%",
+          p: 4,
+          borderRadius: 2,
+        }}
       >
-        <Typography variant="h5" sx={{ mb: 3, textAlign: "center" }}>
-          Login
-        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <Typography
+            component="h1"
+            variant="h4"
+            sx={{ mb: 3, fontWeight: 700, textAlign: "center" }}
+          >
+            Chat Bot Hỗ Trợ Tìm Kiếm Tài Liệu
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+            Đăng nhập để tiếp tục vào tài khoản của bạn
+          </Typography>
 
-        {errorMessage && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {errorMessage}
-          </Alert>
-        )}
-
-        <>
-          <TextField
-            label="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={emailError}
-            helperText={emailError && "Enter a valid email"}
-            fullWidth
-            sx={
-              {
-                /* styles giữ nguyên */
-              }
-            }
-          />
-
-          <TextField
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={passwordError}
-            helperText={passwordError && "Password is required"}
-            fullWidth
-            sx={
-              {
-                /* styles giữ nguyên */
-              }
-            }
-          />
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                color="primary"
-              />
-            }
-            label="Remember me"
-            sx={{ color: "#b3b3b3", mb: 2 }}
-          />
-
-          {loading ? (
-            <Button
-              variant="contained"
-              fullWidth
-              disabled
-              sx={
-                {
-                  /* styles giữ nguyên */
-                }
-              }
-            >
-              <CircularProgress size="30px" />
-            </Button>
-          ) : (
-            <Button
-              onClick={handleSubmit}
-              variant="contained"
-              fullWidth
-              sx={
-                {
-                  /* styles giữ nguyên */
-                }
-              }
-            >
-              Login
-            </Button>
+          {errorMessage && (
+            <Alert severity="error" sx={{ width: "100%", mb: 3 }}>
+              {errorMessage}
+            </Alert>
           )}
-        </>
-      </Box>
-    </Box>
+
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            noValidate
+            sx={{ width: "100%" }}
+          >
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              id="email"
+              label="Email"
+              name="email"
+              autoComplete="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={emailError}
+              helperText={emailError && "Please enter a valid email address"}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label="Mật khẩu"
+              type="password"
+              id="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={passwordError}
+              helperText={passwordError && "Password is required"}
+              sx={{ mb: 1 }}
+            />
+
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label="Ghi nhớ đăng nhập"
+              />
+              {/* <Link
+                component={RouterLink}
+                to="/forgot-password"
+                variant="body2"
+              >
+                Quên mật khẩu?
+              </Link> */}
+            </Box>
+
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              disabled={loading}
+              sx={{
+                mt: 3,
+                mb: 2,
+                py: 1.5,
+                backgroundColor: "#1976d2",
+                "&:hover": {
+                  backgroundColor: "#1565c0",
+                },
+              }}
+            >
+              {loading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                "Đăng nhập"
+              )}
+            </Button>
+
+            <Divider sx={{ my: 3 }}>Hoặc</Divider>
+
+            <Box sx={{ textAlign: "center", mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Chưa có tài khoản?{" "}
+                <Link
+                  component={RouterLink}
+                  to="/register"
+                  variant="body2"
+                  sx={{ fontWeight: 600 }}
+                >
+                  Đăng ký ngay
+                </Link>
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
+    </Container>
   );
 };

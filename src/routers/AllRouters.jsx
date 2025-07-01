@@ -12,12 +12,13 @@ import { LoginPage } from "../Pages/LoginPage";
 import { useContext } from "react";
 import { UserContext } from "../context/UserContext";
 import { UnauthorizedPage } from "../Pages/UnauthorizedPage";
+import { ProfilePage } from "../Pages/ProfilePage";
 
 const AllRoutes = () => {
   const { user, loading } = useContext(UserContext);
 
-  // Component bảo vệ route cho trang Settings
-  const ProtectedSettingsRoute = ({ children }) => {
+  // Component bảo vệ route chung
+  const ProtectedRoute = ({ children }) => {
     if (loading) {
       return <div>Loading...</div>;
     }
@@ -26,12 +27,17 @@ const AllRoutes = () => {
       return <Navigate to="/login" replace />;
     }
 
-    if (user.role !== 1) {
-      return <Navigate to="/unauthorized" replace />;
-    }
-
     return children;
   };
+
+  // Component bảo vệ route cho trang Settings (role = 1)
+  const ProtectedSettingsRoute = ({ children }) => {
+    if (user?.role !== 1) {
+      return <Navigate to="/unauthorized" replace />;
+    }
+    return children;
+  };
+
   return (
     <Router>
       <Box
@@ -43,23 +49,52 @@ const AllRoutes = () => {
       >
         <Box sx={{ flexGrow: 1 }}>
           <Routes>
-            {/* -------------------all routers-------------------- */}
-            <Route path="/" element={<Navigate to="/homepage" />} />
-            <Route path="/homepage" element={<HomePage />} />
+            {/* Route công khai */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-            {/* Route Settings được bảo vệ */}
+            {/* Route được bảo vệ */}
             <Route
-              path="/settings"
+              path="/"
               element={
-                <ProtectedSettingsRoute>
-                  <Settings />
-                </ProtectedSettingsRoute>
+                <ProtectedRoute>
+                  <Navigate to="/homepage" replace />
+                </ProtectedRoute>
               }
             />
 
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            <Route
+              path="/homepage"
+              element={
+                <ProtectedRoute>
+                  <HomePage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <ProtectedSettingsRoute>
+                    <Settings />
+                  </ProtectedSettingsRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Redirect mọi route không khớp */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </Box>
       </Box>
