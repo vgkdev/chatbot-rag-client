@@ -48,6 +48,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import { ChatItem } from "../components/ChatItem";
 import ConfirmationDialog from "../components/ConfirmationDialog";
+import { buildVectorStore, getRelevantChunks } from "../servers/ragProcessor";
 
 const drawerWidth = 240;
 const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
@@ -113,6 +114,7 @@ export default function HomePage() {
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
   const [chatToDelete, setChatToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [metadataOfFiles, setMetadataOfFiles] = useState(""); // Metadata của các file
 
   // console.log(">>>check user: ", user.major.name);
 
@@ -154,19 +156,27 @@ export default function HomePage() {
       setFileList(files); // Cập nhật state
 
       let combinedContent = ""; // Biến lưu nội dung đã gộp từ tất cả file
+      let combinedMetadata = ""; // Biến lưu metadata của các file
+
       files.forEach((file) => {
-        combinedContent += `--- Nội dung này từ tên file ${
-          file.name
-        }; thuộc file ${file.fileName}, thuộc môn học ${
-          file.subject.name
-        }; thuộc chuyên ngành ${
-          file.subject.isBasic
-            ? "Cơ sở ngành"
-            : file.subject.majors.map((m) => m.name).join(", ")
-        }; (URL: ${file.url}). Nội dung file: ---\n${file.textContent}\n\n`;
+        const fileInfo = `📁 Tên file: ${file.name}
+          📄 Tên gốc: ${file.fileName}
+          📚 Môn học: ${file.subject.name}
+          📘 Chuyên ngành: ${
+            file.subject.isBasic
+              ? "Cơ sở ngành"
+              : file.subject.majors.map((m) => m.name).join(", ")
+          }
+          🔗 URL: ${file.url}`;
+
+        combinedMetadata += `${fileInfo}\n\n`;
+
+        combinedContent += file.textContent + "\n\n";
       });
       console.log(">>>check combined PDF Content:\n", combinedContent);
-      setFullText(combinedContent); // Cập nhật nội dung vào state
+      setFullText(combinedContent); // Dùng cho vector store
+      setMetadataOfFiles(combinedMetadata); // Dùng cho prompt
+      await buildVectorStore(combinedContent, apiKey);
     } catch (error) {
       console.error("Error fetching files:", error);
     } finally {
@@ -197,6 +207,9 @@ export default function HomePage() {
     setChatHistory(newChatHistory); // Cập nhật chatHistory
     setIsThinking(true);
 
+    const contextFromChunks = await getRelevantChunks(message, 5); // lấy 5 đoạn văn liên quan
+    console.log(">>>check contextFromChunks: ", contextFromChunks);
+
     try {
       const messages = [
         {
@@ -217,8 +230,14 @@ export default function HomePage() {
             \`\`\`
 
             2. 📂 Cơ sở dữ liệu chính thức gồm giáo trình, bài giảng, và các tài liệu khác có đường dẫn:  
-            \`\`\`  
-            ${fullText}
+            📑 Danh sách metadata:
+            \`\`\`
+            ${metadataOfFiles}
+            \`\`\`
+
+            📚 Nội dung liên quan được truy xuất:
+            \`\`\`
+            ${contextFromChunks}
             \`\`\`
 
             💬 **Lịch sử trò chuyện trước đó**:
