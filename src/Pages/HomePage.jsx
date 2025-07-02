@@ -35,6 +35,7 @@ import { useContext } from "react";
 import { UserContext } from "../context/UserContext";
 import {
   deleteChatFromFirebase,
+  getDocumentsWithContent,
   getFilesFromFirebase,
   loadChatsFromFirebase,
   renameChatInFirebase,
@@ -54,8 +55,8 @@ const MAX_HISTORY_LENGTH = 10;
 
 // console.log(">>>check apiKey: ", apiKey);
 const model = new ChatGoogleGenerativeAI({
-  // model: "gemini-1.5-pro",
-  model: "gemini-1.5-flash",
+  model: "gemini-2.5-flash",
+  // model: "gemini-1.5-flash",
   temperature: 0,
   maxRetries: 2,
   apiKey: apiKey,
@@ -113,7 +114,7 @@ export default function HomePage() {
   const [chatToDelete, setChatToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // console.log(">>>check user: ", user);
+  // console.log(">>>check user: ", user.major.name);
 
   useEffect(() => {
     const fetchChats = async () => {
@@ -146,13 +147,23 @@ export default function HomePage() {
   const fetchFiles = async () => {
     setLoadingFilesFromFirebase(true);
     try {
-      const files = await getFilesFromFirebase(); // Lấy danh sách file từ Firebase
+      // const files = await getFilesFromFirebase(); // Lấy danh sách file từ Firebase
+      const files = await getDocumentsWithContent();
+      console.log(">>>check file2: ", files);
       // console.log(">>>check files: ", files);
       setFileList(files); // Cập nhật state
 
       let combinedContent = ""; // Biến lưu nội dung đã gộp từ tất cả file
       files.forEach((file) => {
-        combinedContent += `--- Content from ${file.name} (URL: ${file.url}) ---\n${file.textContent}\n\n`;
+        combinedContent += `--- Nội dung này từ tên file ${
+          file.name
+        }; thuộc file ${file.fileName}, thuộc môn học ${
+          file.subject.name
+        }; thuộc chuyên ngành ${
+          file.subject.isBasic
+            ? "Cơ sở ngành"
+            : file.subject.majors.map((m) => m.name).join(", ")
+        }; (URL: ${file.url}). Nội dung file: ---\n${file.textContent}\n\n`;
       });
       console.log(">>>check combined PDF Content:\n", combinedContent);
       setFullText(combinedContent); // Cập nhật nội dung vào state
@@ -233,7 +244,8 @@ export default function HomePage() {
           4. Khi trả lời vui lòng chỉ cung cấp thông tin tổng quan từ tài liệu tham khảo mà không đề cập đến chi tiết như số slide, số trang hoặc định dạng tài liệu
           5. Nếu không biết về thông tin đó thì trả lời: "Xin lỗi, tôi chưa có thông tin.".
           6. Khi yêu cầu có các từ như: "gửi tài liệu", "gửi file", "gửi link", "gửi url", "muốn tài liệu", "muốn file", "muốn link", "muốn url" thì hãy cung cấp link(url) đến chính xác file mà người dùng đã đề cập đến trước đó thông qua Lịch sử trò chuyện, không gửi những file khác không liên quan.
-          7. Khi gửi kèm link(url) phải theo định dạng sau: "Link tài liệu: [tên file](link)".
+          7. Khi nói đến file đó thì bạn phải gửi kèm link(url) phải theo định dạng sau: "Link tài liệu: [tên file](link)".
+          8. Tôi là sinh viên thuộc chuyên ngành ${user.major.name}, hãy gợi ý tôi (1-3) tài liệu học tập phù hợp với chuyên ngành của tôi.
           ${message}
           `,
         },

@@ -551,3 +551,44 @@ export const subscribeToDocuments = (callback) => {
     callback(documents);
   });
 };
+
+/**
+ * Lấy tất cả tài liệu từ Firestore kèm nội dung text nếu là PDF
+ * @returns {Promise<Array>} - Danh sách tài liệu với trường textContent
+ */
+export const getDocumentsWithContent = async () => {
+  try {
+    const documentsRef = collection(db, "system", "documents", "items");
+    const querySnapshot = await getDocs(documentsRef);
+
+    const documentsWithContent = await Promise.all(
+      querySnapshot.docs.map(async (doc) => {
+        const documentData = doc.data();
+        let textContent = "";
+
+        if (documentData.fileName?.endsWith(".pdf")) {
+          try {
+            textContent = await readPdfFile(documentData.url);
+          } catch (error) {
+            console.error(
+              `Error reading PDF content for ${documentData.fileName}:`,
+              error
+            );
+            textContent = "Không thể đọc nội dung file";
+          }
+        }
+
+        return {
+          id: doc.id,
+          ...documentData,
+          textContent,
+        };
+      })
+    );
+
+    return documentsWithContent;
+  } catch (error) {
+    console.error("Error getting documents with content:", error);
+    throw error;
+  }
+};
