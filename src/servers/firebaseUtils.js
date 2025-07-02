@@ -20,6 +20,60 @@ import {
 import { db, storage } from "../configs/firebase";
 import readPdfFile from "../utils/readPdfFile";
 
+export const fetchAllUsers = async () => {
+  try {
+    const userCollection = collection(db, "users");
+    const userSnapshot = await getDocs(userCollection);
+    return userSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    throw error;
+  }
+};
+
+export const updateUserData = async (userId, userData) => {
+  try {
+    const userRef = doc(db, "users", userId);
+    await setDoc(
+      userRef,
+      {
+        ...userData,
+        // Ensure critical fields are properly formatted
+        userName: userData.userName?.trim(),
+        role: Number(userData.role) || 0, // Ensure role is a number
+      },
+      { merge: true } // This preserves existing fields not in userData
+    );
+    return { id: userId, ...userData };
+  } catch (error) {
+    console.error("Error updating user:", error);
+    throw error;
+  }
+};
+
+export const deleteUserData = async (userId) => {
+  try {
+    await deleteDoc(doc(db, "users", userId));
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    throw error;
+  }
+};
+
+export const subscribeToUsers = (callback) => {
+  const usersRef = collection(db, "users");
+  return onSnapshot(usersRef, (snapshot) => {
+    const users = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    callback(users);
+  });
+};
+
 export const updateUserProfile = async (userId, userData) => {
   try {
     // Prepare the data to be saved in Firebase

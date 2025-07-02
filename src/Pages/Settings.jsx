@@ -56,8 +56,8 @@ export const Settings = () => {
       >
         <Tab label="Files" />
         <Tab label="Resources" />
-        <Tab label="Settings" />
-        <Tab label="Help" />
+        {/* <Tab label="Settings" /> */}
+        {/* <Tab label="Help" /> */}
       </Tabs>
 
       {/* Files Tab */}
