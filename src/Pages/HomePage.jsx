@@ -21,6 +21,7 @@ import {
   ListItemText,
   Menu,
   MenuItem,
+  TextareaAutosize,
   Typography,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
@@ -292,7 +293,7 @@ export default function HomePage() {
             📎 Link tài liệu: [Đề cương môn học - syllabus.pdf](https://domain.com/syllabus.pdf)
 
             🎓 **Thông tin người dùng**:  
-            - Ngành học: **${user.major.name}**
+            - Ngành học: **${user?.major?.name || "Chưa có chuyên ngành"}**
             - Gợi ý 1-3 tài liệu học phù hợp với ngành nếu có thể.
 
             ---
@@ -426,7 +427,12 @@ export default function HomePage() {
 
   const handleKeyDown = (event) => {
     if (event.key === "Enter") {
-      sendMessage();
+      if (event.shiftKey) {
+        // Cho phép xuống dòng khi Shift + Enter
+        return;
+      }
+      event.preventDefault(); // Ngăn tạo dòng mới khi chỉ ấn Enter
+      sendMessage(); // Gửi tin nhắn
     }
   };
 
@@ -626,6 +632,27 @@ export default function HomePage() {
             {loadingChatContent ? (
               <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
                 <CircularProgress />
+              </Box>
+            ) : chatHistory.length === 0 ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "60vh",
+                  textAlign: "center",
+                  color: "#aaa",
+                }}
+              >
+                <SmartToyOutlinedIcon sx={{ fontSize: 64, mb: 2 }} />
+                <Typography variant="h5" sx={{ mb: 1 }}>
+                  👋 Chào bạn, mình là <strong>DocsBot</strong>!
+                </Typography>
+                <Typography variant="body1">
+                  Hãy bắt đầu bằng cách đặt câu hỏi hoặc tải lên tài liệu PDF
+                  của bạn nhé.
+                </Typography>
               </Box>
             ) : (
               chatHistory.map((chat, index) => (
@@ -856,8 +883,8 @@ export default function HomePage() {
               </IconButton>
 
               {/* Input Field */}
-              <InputBase
-                placeholder="Chat"
+              {/* <InputBase
+                placeholder="Hãy nhập câu hỏi"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 sx={{
@@ -866,6 +893,26 @@ export default function HomePage() {
                   color: "white",
                 }}
                 onKeyDown={handleKeyDown}
+              /> */}
+
+              <TextareaAutosize
+                minRows={1}
+                maxRows={6}
+                placeholder="Hãy nhập câu hỏi"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                style={{
+                  flex: 1,
+                  backgroundColor: "transparent",
+                  border: "none",
+                  resize: "none",
+                  outline: "none",
+                  color: "white",
+                  fontSize: "1rem",
+                  padding: "10px",
+                  fontFamily: "inherit",
+                }}
               />
 
               <IconButton

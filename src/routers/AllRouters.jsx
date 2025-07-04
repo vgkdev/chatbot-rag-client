@@ -32,7 +32,7 @@ const AllRoutes = () => {
 
   // Component bảo vệ route cho trang Settings (role = 1)
   const ProtectedSettingsRoute = ({ children }) => {
-    if (user?.role !== 1) {
+    if (user?.role !== 1 && user?.role !== 2) {
       return <Navigate to="/unauthorized" replace />;
     }
     return children;

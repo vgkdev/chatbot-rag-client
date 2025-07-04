@@ -148,7 +148,7 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
 
                 <Divider />
 
-                {user.role === 1 && (
+                {(user.role === 1 || user.role === 2) && (
                   <MenuItem
                     onClick={() => {
                       navigate("/settings");
@@ -158,14 +158,14 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
                     <ListItemIcon>
                       <Settings fontSize="small" />
                     </ListItemIcon>
-                    Settings
+                    Cài đặt
                   </MenuItem>
                 )}
                 <MenuItem onClick={handleLogout}>
                   <ListItemIcon>
                     <Logout fontSize="small" />
                   </ListItemIcon>
-                  Logout
+                  Đăng xuất
                 </MenuItem>
               </div>
             ) : (
@@ -179,7 +179,7 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
                   <ListItemIcon>
                     <LoginIcon fontSize="small" />
                   </ListItemIcon>
-                  Login
+                  Đăng nhập
                 </MenuItem>
                 <MenuItem
                   onClick={() => {
@@ -190,7 +190,7 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
                   <ListItemIcon>
                     <PersonAddAltIcon fontSize="small" />
                   </ListItemIcon>
-                  Register
+                  Đăng ký
                 </MenuItem>
               </div>
             )}

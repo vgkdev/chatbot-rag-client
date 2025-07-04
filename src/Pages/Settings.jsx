@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useContext } from "react";
 import { Box, Tabs, Tab, Button } from "@mui/material";
 
 import { useNavigate } from "react-router-dom";
 import { FilesTab } from "../components/FilesTab";
 import { ResourcesTab } from "../components/ResourcesTab";
+import { UserContext } from "../context/UserContext";
 
 export const Settings = () => {
+  const { user, loading } = useContext(UserContext);
   const [tabValue, setTabValue] = React.useState(0);
 
   const navigate = useNavigate();
@@ -43,7 +45,7 @@ export const Settings = () => {
           color: "black",
         }}
       >
-        Back to Chat
+        Quay lại Chat
       </Button>
 
       {/* Top Tabs */}
@@ -54,17 +56,14 @@ export const Settings = () => {
         // indicatorColor="secondary"
         sx={{ mt: 4 }} // Adjusting for the button above
       >
-        <Tab label="Files" />
-        <Tab label="Resources" />
+        {user.role === 2 && <Tab label="Tài liệu" />}
+        {user.role === 1 && <Tab label="Tài nguyên" />}
         {/* <Tab label="Settings" /> */}
         {/* <Tab label="Help" /> */}
       </Tabs>
 
-      {/* Files Tab */}
-      {tabValue === 0 && <FilesTab />}
-
-      {/* Resources Tab */}
-      {tabValue === 1 && <ResourcesTab />}
+      {user.role === 2 && tabValue === 0 && <FilesTab />}
+      {user.role === 1 && tabValue === 0 && <ResourcesTab />}
     </Box>
   );
 };
