@@ -112,16 +112,17 @@ export const saveChatToFirebase = async (
     // const chatRef = doc(db, "chats", chatId);
     console.log(">>>check user id: ", userId);
     const chatRef = doc(db, "users", userId, "chats", chatId);
-    await setDoc(
-      chatRef,
-      {
-        chatHistory,
-        context,
-        title,
-        timestamp: new Date(),
-      },
-      { merge: true }
-    );
+
+    const dataToSave = {
+      chatHistory,
+      context,
+      timestamp: new Date(),
+    };
+    if (title) {
+      dataToSave.title = title; // Chỉ thêm title nếu có
+    }
+
+    await setDoc(chatRef, dataToSave, { merge: true });
     console.log("Chat saved to Firebase");
   } catch (error) {
     console.error("Error saving chat to Firebase:", error);

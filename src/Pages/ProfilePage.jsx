@@ -17,6 +17,7 @@ import { UserContext } from "../context/UserContext";
 import { updateDoc, doc } from "firebase/firestore";
 import { db } from "../configs/firebase";
 import { getMajors, updateUserProfile } from "../servers/firebaseUtils";
+import useSnackbarUtils from "../utils/useSnackbarUtils";
 
 export const ProfilePage = () => {
   const { user, setUser } = useContext(UserContext);
@@ -27,7 +28,7 @@ export const ProfilePage = () => {
   });
   const [majors, setMajors] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const { showSuccess, showError } = useSnackbarUtils();
 
   useEffect(() => {
     const loadMajors = async () => {
@@ -36,6 +37,7 @@ export const ProfilePage = () => {
         setMajors(majorsData);
       } catch (error) {
         console.error("Error loading majors:", error);
+        showError("Lỗi khi tải danh sách chuyên ngành!", 6000);
       }
     };
     loadMajors();
@@ -62,6 +64,10 @@ export const ProfilePage = () => {
   };
 
   const handleSave = async () => {
+    if (!formData.userName || !formData.major) {
+      showError("Vui lòng điền đầy đủ thông tin!", 4000);
+      return;
+    }
     try {
       setLoading(true);
 
@@ -93,13 +99,13 @@ export const ProfilePage = () => {
         })
       );
 
-      setSuccessMessage("Profile updated successfully!");
+      showSuccess("Cập nhật hồ sơ thành công!", 4000);
       setEditMode(false);
     } catch (error) {
       console.error("Error updating profile:", error);
+      showError("Lỗi khi cập nhật hồ sơ. Vui lòng thử lại.", 6000);
     } finally {
       setLoading(false);
-      setTimeout(() => setSuccessMessage(""), 3000);
     }
   };
 
@@ -147,12 +153,6 @@ export const ProfilePage = () => {
           <Typography variant="h5" component="h1" sx={{ mb: 3 }}>
             {user.userName || "User Profile"}
           </Typography>
-
-          {successMessage && (
-            <Typography color="success.main" sx={{ mb: 2 }}>
-              {successMessage}
-            </Typography>
-          )}
 
           <Box sx={{ width: "100%", mb: 3 }}>
             <Typography variant="subtitle1">Email</Typography>

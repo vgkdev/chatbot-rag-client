@@ -24,6 +24,7 @@ import { auth, db } from "../configs/firebase";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 import { doc, getDoc } from "firebase/firestore";
+import useSnackbarUtils from "../utils/useSnackbarUtils.jsx";
 
 export const LoginPage = () => {
   const { setUser, setRememberMe } = useContext(UserContext);
@@ -35,6 +36,7 @@ export const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
+  const { showSuccess, showError } = useSnackbarUtils();
 
   const validateForm = () => {
     let isValid = true;
@@ -86,11 +88,22 @@ export const LoginPage = () => {
         }
 
         setLoading(false);
+        showSuccess("Đăng nhập thành công! Chào mừng bạn trở lại.");
         navigate("/homepage");
       } catch (error) {
         console.error("Login error: ", error.message);
         setLoading(false);
-        setErrorMessage("Invalid email or password. Please try again.");
+        if (
+          error.code === "auth/user-not-found" ||
+          error.code === "auth/wrong-password"
+        ) {
+          showError("Email hoặc mật khẩu không hợp lệ.", 6000);
+        } else if (error.code === "auth/invalid-credential") {
+          showError("Email hoặc mật khẩu không hợp lệ.", 6000);
+        } else {
+          showError("Đăng nhập thất bại. Vui lòng thử lại.", 6000);
+        }
+        // setErrorMessage("Invalid email or password. Please try again.");
       }
     }
   };
@@ -155,7 +168,7 @@ export const LoginPage = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               error={emailError}
-              helperText={emailError && "Please enter a valid email address"}
+              helperText={emailError && "Vui lòng nhập email"}
               sx={{ mb: 2 }}
             />
             <TextField
@@ -170,7 +183,7 @@ export const LoginPage = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               error={passwordError}
-              helperText={passwordError && "Password is required"}
+              helperText={passwordError && "Vui lòng nhập mật khẩu"}
               sx={{ mb: 1 }}
             />
 

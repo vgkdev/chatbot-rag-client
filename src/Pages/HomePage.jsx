@@ -49,9 +49,15 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import { ChatItem } from "../components/ChatItem";
 import ConfirmationDialog from "../components/ConfirmationDialog";
-import { buildVectorStore, getRelevantChunks } from "../servers/ragProcessor";
+import {
+  buildVectorStore,
+  generateChatTitle,
+  getRelevantChunks,
+} from "../servers/ragProcessor";
+import useSnackbarUtils from "../utils/useSnackbarUtils";
+import { ChatItem2 } from "../components/ChatItem2";
 
-const drawerWidth = 240;
+const drawerWidth = 300;
 const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
 const MAX_HISTORY_LENGTH = 10;
 
@@ -60,7 +66,8 @@ const model = new ChatGoogleGenerativeAI({
   model: "gemini-2.5-flash",
   // model: "gemini-1.5-flash",
   temperature: 0,
-  maxRetries: 2,
+  maxRetries: 3,
+  // maxOutputTokens: 512,
   apiKey: apiKey,
 });
 
@@ -116,6 +123,7 @@ export default function HomePage() {
   const [chatToDelete, setChatToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [metadataOfFiles, setMetadataOfFiles] = useState(""); // Metadata của các file
+  const { showSuccess, showError } = useSnackbarUtils();
 
   // console.log(">>>check user: ", user.major.name);
 
@@ -321,7 +329,8 @@ export default function HomePage() {
 
       // Lưu lịch sử chat vào Firebase
       const chatId = activeChatId || `chat_${new Date().getTime()}`; // Tạo một chatId duy nhất
-      const title = `Chat ${new Date().toLocaleString()}`; // Tạo tiêu đề cho cuộc trò chuyện
+      // const title = `Chat ${new Date().toLocaleString()}`; // Tạo tiêu đề cho cuộc trò chuyện
+      let title = activeChatId ? null : await generateChatTitle(message); // Tạo tiêu đề nếu không có activeChatId
 
       await saveChatToFirebase(
         user.userId,
@@ -458,9 +467,11 @@ export default function HomePage() {
           // Cập nhật danh sách chats sau khi đổi tên
           const loadedChats = await loadChatsFromFirebase(user.userId);
           setChats(loadedChats);
+          showSuccess("Đổi tên thành công!");
         }
       } catch (error) {
         console.error("Failed to rename chat:", error);
+        showError("Có lỗi xảy ra khi đổi tên!");
       }
     }
     handleMenuClose();
@@ -511,6 +522,7 @@ export default function HomePage() {
           // Load lại danh sách chats sau khi xóa
           const loadedChats = await loadChatsFromFirebase(user.userId);
           setChats(loadedChats);
+          showSuccess("Xóa cuộc trò chuyện thành công");
           // Nếu chat đang active bị xóa, reset giao diện
           if (activeChatId === chatToDelete) {
             setChatHistory([]);
@@ -522,6 +534,7 @@ export default function HomePage() {
         }
       } catch (error) {
         console.error("Failed to delete chat:", error);
+        showError("Lỗi khi xóa cuộc trò chuyện");
       } finally {
         setIsDeleting(false); // Tắt trạng thái loading
         setOpenConfirmDialog(false); // Đóng modal sau khi hoàn tất
@@ -569,7 +582,7 @@ export default function HomePage() {
           ) : (
             [...chats].reverse().map((chat) => {
               return (
-                <ChatItem
+                <ChatItem2
                   key={chat.id}
                   chat={chat}
                   loadChat={loadChat}
