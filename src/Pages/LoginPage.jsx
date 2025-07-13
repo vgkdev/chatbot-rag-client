@@ -97,7 +97,7 @@ export const LoginPage = () => {
           error.code === "auth/user-not-found" ||
           error.code === "auth/wrong-password"
         ) {
-          showError("Email hoặc mật khẩu không hợp lệ.", 6000);
+          showError("Email hoặc mật khẩu không chính xác.", 6000);
         } else if (error.code === "auth/invalid-credential") {
           showError("Email hoặc mật khẩu không hợp lệ.", 6000);
         } else {

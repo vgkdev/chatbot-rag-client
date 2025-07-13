@@ -15,6 +15,7 @@ import {
   updateMajor,
 } from "../servers/firebaseUtils";
 import { EditModal } from "./EditModal";
+import useSnackbarUtils from "../utils/useSnackbarUtils";
 
 export const MajorList = () => {
   const [newMajor, setNewMajor] = useState("");
@@ -26,6 +27,7 @@ export const MajorList = () => {
     id: "",
     name: "",
   });
+  const { showSuccess, showError, showWarning } = useSnackbarUtils(); // Sử dụng useSnackbarUtils
 
   useEffect(() => {
     const unsubscribe = subscribeToMajors((majors) => {
@@ -36,20 +38,27 @@ export const MajorList = () => {
   }, []);
 
   const handleAddMajor = async () => {
-    if (newMajor.trim() === "") return;
+    if (newMajor.trim() === "") {
+      showWarning("Tên chuyên ngành không được để trống!");
+      return;
+    }
     try {
       await addMajor(newMajor);
       setNewMajor("");
+      showSuccess("Thêm chuyên ngành thành công!");
     } catch (error) {
       console.error("Error adding major:", error);
+      showError("Lỗi khi thêm chuyên ngành!");
     }
   };
 
   const handleDeleteMajor = async (majorId) => {
     try {
       await deleteMajor(majorId);
+      showSuccess("Xóa chuyên ngành thành công!");
     } catch (error) {
       console.error("Error deleting major:", error);
+      showError("Lỗi khi xóa chuyên ngành!");
     }
   };
 
@@ -62,10 +71,17 @@ export const MajorList = () => {
   };
 
   const handleUpdateMajor = async (newName) => {
+    if (newName.trim() === "") {
+      showWarning("Tên chuyên ngành không được để trống!");
+      return;
+    }
     try {
       await updateMajor(currentEdit.id, newName);
+      showSuccess("Cập nhật chuyên ngành thành công!");
+      setEditModalOpen(false);
     } catch (error) {
       console.error("Error updating major:", error);
+      showError("Lỗi khi cập nhật chuyên ngành!");
     }
   };
 
@@ -97,7 +113,6 @@ export const MajorList = () => {
         try {
           // Kiểm tra và xử lý mọi trường hợp có thể
           const timestamp = params;
-          // console.log(">>>check timestamp:", params.seconds);
 
           if (!timestamp) return "N/A";
 

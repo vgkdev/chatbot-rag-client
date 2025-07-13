@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -16,8 +17,6 @@ import {
   Typography,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
-import { db } from "../configs/firebase";
 import {
   deleteUserData,
   fetchAllUsers,
@@ -25,6 +24,8 @@ import {
   updateUserData,
 } from "../servers/firebaseUtils";
 import { Delete, Edit } from "@mui/icons-material";
+import useSnackbarUtils from "../utils/useSnackbarUtils";
+
 const UserList = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,10 +36,8 @@ const UserList = () => {
     role: 0,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const { showSuccess, showError, showWarning } = useSnackbarUtils(); // Sử dụng useSnackbarUtils
 
-  // useEffect(() => {
-  //   fetchUsers();
-  // }, []);
   useEffect(() => {
     setLoading(true);
     const unsubscribe = subscribeToUsers((users) => {
@@ -56,8 +55,10 @@ const UserList = () => {
       setLoading(true);
       const userList = await fetchAllUsers();
       setUsers(userList);
+      showSuccess("Lấy danh sách người dùng thành công!");
     } catch (error) {
       console.error("Error:", error);
+      showError("Lỗi khi lấy danh sách người dùng!");
     } finally {
       setLoading(false);
     }
@@ -66,26 +67,31 @@ const UserList = () => {
   const deleteUser = async (userId) => {
     try {
       await deleteUserData(userId);
-      // setUsers((prevUsers) => prevUsers.filter((user) => user.id !== userId));
+      showSuccess("Xóa người dùng thành công!");
     } catch (error) {
       console.error("Error:", error);
+      showError("Lỗi khi xóa người dùng!");
     }
   };
 
   const handleUpdateUser = async () => {
+    // Kiểm tra nếu userName trống
+    if (!editForm.userName.trim()) {
+      showWarning("Tên người dùng không được để trống!");
+      return;
+    }
+
     try {
       setIsSaving(true);
       const updatedUser = await updateUserData(currentUser.id, {
         userName: editForm.userName,
         role: editForm.role,
       });
-
-      // setUsers(
-      //   users.map((user) => (user.id === currentUser.id ? updatedUser : user))
-      // );
+      showSuccess("Cập nhật người dùng thành công!");
       setEditModalOpen(false);
     } catch (error) {
       console.error("Error:", error);
+      showError("Lỗi khi cập nhật người dùng!");
     } finally {
       setIsSaving(false);
     }
@@ -109,16 +115,16 @@ const UserList = () => {
   };
 
   // Function to convert role number to text
-  const getRoleText = (role) => {
+  const getRoleDisplay = (role) => {
     switch (role) {
       case 0:
-        return "Sinh viên";
+        return { label: "Sinh viên", color: "#2196F3" };
       case 1:
-        return "Quản trị viên";
+        return { label: "Quản trị viên", color: "#FF9800" };
       case 2:
-        return "Giảng viên";
+        return { label: "Giảng viên", color: "#00C853" };
       default:
-        return "Không xác định";
+        return { label: "Không xác định", color: "grey" };
     }
   };
 
@@ -130,7 +136,20 @@ const UserList = () => {
       field: "role",
       headerName: "Vai trò",
       width: 150,
-      valueGetter: (params) => getRoleText(params),
+      renderCell: (params) => {
+        const { label, color } = getRoleDisplay(params.value);
+        return (
+          <Chip
+            label={label}
+            sx={{
+              backgroundColor: color,
+              color: "white",
+              fontWeight: "bold",
+              fontSize: "0.75rem",
+            }}
+          />
+        );
+      },
     },
     {
       field: "actions",
@@ -146,13 +165,13 @@ const UserList = () => {
           >
             <Edit />
           </IconButton>
-          <IconButton
+          {/* <IconButton
             color="error"
             onClick={() => deleteUser(params.row.id)}
             aria-label="delete"
           >
             <Delete />
-          </IconButton>
+          </IconButton> */}
         </Box>
       ),
     },
@@ -161,7 +180,7 @@ const UserList = () => {
   return (
     <Box sx={{ padding: 2, backgroundColor: "#121212", color: "white" }}>
       <Typography variant="h6" sx={{ mb: 2 }}>
-        User List
+        Danh sách người dùng
       </Typography>
 
       <Box sx={{ height: 400, backgroundColor: "#1e1e1e" }}>

@@ -31,6 +31,7 @@ import {
   updateDocument,
 } from "../servers/firebaseUtils";
 import { Edit } from "@mui/icons-material";
+import useSnackbarUtils from "../utils/useSnackbarUtils";
 
 export const FilesTab = () => {
   const [fileList, setFileList] = useState([]);
@@ -44,6 +45,7 @@ export const FilesTab = () => {
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
   const [isUpLoading, setIsUpLoading] = useState(false);
+  const { showSuccess, showError, showWarning } = useSnackbarUtils();
 
   useEffect(() => {
     fetchFiles();
@@ -58,6 +60,7 @@ export const FilesTab = () => {
         setSubjects(subjectsData);
       } catch (error) {
         console.error("Error fetching subjects:", error);
+        showError("Lỗi khi lấy danh sách môn học!");
       }
     };
     fetchSubjects();
@@ -89,6 +92,7 @@ export const FilesTab = () => {
       setFileList(filesWithStt);
     } catch (error) {
       console.error("Error fetching files:", error);
+      showError("Lỗi khi lấy danh sách tài liệu!");
     }
   };
 
@@ -105,9 +109,11 @@ export const FilesTab = () => {
 
         // Cập nhật UI
         setFileList(fileList.filter((file) => file.id !== fileId));
+        showSuccess("Xóa tài liệu thành công!");
       }
     } catch (error) {
       console.error("Error deleting file:", error);
+      showError("Lỗi khi xóa tài liệu!");
     }
   };
 
@@ -151,6 +157,18 @@ export const FilesTab = () => {
   };
 
   const handleSubmit = async () => {
+    if (!formData.name.trim()) {
+      showWarning("Tên tài liệu không được để trống!");
+      return;
+    }
+    if (!formData.subject) {
+      showWarning("Vui lòng chọn môn học!");
+      return;
+    }
+    if (!formData.file) {
+      showWarning("Vui lòng chọn file để tải lên!");
+      return;
+    }
     try {
       if (formData.file && formData.subject) {
         setIsUpLoading(true);
@@ -168,11 +186,13 @@ export const FilesTab = () => {
           subject: formData.subject || null,
         });
 
-        fetchFiles();
+        await fetchFiles();
         handleCloseModal();
+        showSuccess("Tải lên tài liệu thành công!");
       }
     } catch (error) {
       console.error("Error uploading classified file:", error);
+      showError("Lỗi khi tải lên tài liệu!");
     } finally {
       setIsUpLoading(false);
       setFormData({
@@ -184,6 +204,14 @@ export const FilesTab = () => {
   };
 
   const handleUpdateDocument = async () => {
+    if (!formData.name.trim()) {
+      showWarning("Tên tài liệu không được để trống!");
+      return;
+    }
+    if (!formData.subject) {
+      showWarning("Vui lòng chọn môn học!");
+      return;
+    }
     try {
       if (currentDocument) {
         setIsUpLoading(true);
@@ -202,12 +230,14 @@ export const FilesTab = () => {
 
         await updateDocument(currentDocument.id, updateData);
 
-        fetchFiles();
+        await fetchFiles();
         setOpenUpdateModal(false);
         setCurrentDocument(null);
+        showSuccess("Cập nhật tài liệu thành công!");
       }
     } catch (error) {
       console.error("Error updating document:", error);
+      showError("Lỗi khi cập nhật tài liệu!");
     } finally {
       setIsUpLoading(false);
       setFormData({
@@ -218,9 +248,34 @@ export const FilesTab = () => {
     }
   };
 
+  const handleOpenFile = (url) => {
+    if (url) {
+      window.open(url, "_blank");
+    } else {
+      showError("Không tìm thấy URL của file!");
+    }
+  };
+
   const columns = [
     { field: "stt", headerName: "STT", width: 80 },
     { field: "name", headerName: "Tên file", width: 250 },
+    {
+      field: "fileName",
+      headerName: "Tên gốc",
+      width: 250,
+      renderCell: (params) => (
+        <Typography
+          sx={{
+            color: "#00C853",
+            cursor: "pointer",
+            "&:hover": { textDecoration: "underline" },
+          }}
+          onClick={() => handleOpenFile(params.row.url)}
+        >
+          {params.value}
+        </Typography>
+      ),
+    },
     {
       field: "subjectName",
       headerName: "Môn học",
@@ -302,6 +357,7 @@ export const FilesTab = () => {
     id: file.id, // Sử dụng file.id thay vì file.stt
     stt: file.stt,
     name: file.name,
+    fileName: file.fileName,
     subjectName: file.subjectName,
     isBasic: file.isBasic,
     majors: file.majors,
@@ -364,7 +420,7 @@ export const FilesTab = () => {
           <Box sx={{ mt: 2 }}>
             <TextField
               fullWidth
-              label="Tên file"
+              label="Tên tài liệu"
               name="name"
               value={formData.name}
               onChange={handleFormChange}
@@ -438,9 +494,10 @@ export const FilesTab = () => {
           <Box sx={{ mt: 2 }}>
             <TextField
               fullWidth
-              label="Tên file"
+              label="Tên tài liệu"
               name="name"
-              value={formData.name || currentDocument?.name || ""}
+              // value={formData.name || currentDocument?.name || ""} // code này bị lỗi khi xóa toàn bộ text trong TextField
+              value={formData.name}
               onChange={handleFormChange}
               sx={{ mb: 2 }}
             />

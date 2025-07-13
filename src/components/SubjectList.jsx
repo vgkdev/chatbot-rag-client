@@ -26,14 +26,13 @@ import {
   subscribeToSubjects,
   updateSubject,
 } from "../servers/firebaseUtils";
+import useSnackbarUtils from "../utils/useSnackbarUtils";
 
 export const SubjectList = () => {
   const [newSubject, setNewSubject] = useState("");
   const [subjects, setSubjects] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(true);
-  // const [editModalOpen, setEditModalOpen] = useState(false);
-  // const [addModalOpen, setAddModalOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentEdit, setCurrentEdit] = useState({
@@ -41,16 +40,14 @@ export const SubjectList = () => {
     name: "",
   });
   const [isSaving, setIsSaving] = useState(false);
-  // Danh sách chuyên ngành (có thể lấy từ Firebase)
   const [majors, setMajors] = useState([]);
-
-  // State cho form thêm mới
   const [currentSubject, setCurrentSubject] = useState({
     id: "",
     name: "",
     majors: [],
     isBasic: false,
   });
+  const { showSuccess, showError, showWarning } = useSnackbarUtils(); // Sử dụng useSnackbarUtils
 
   useEffect(() => {
     const unsubscribe = subscribeToSubjects((subjects) => {
@@ -68,6 +65,7 @@ export const SubjectList = () => {
         setMajors(majorsData);
       } catch (error) {
         console.error("Error fetching majors:", error);
+        showError("Lỗi khi lấy danh sách chuyên ngành!");
       }
     };
     fetchMajors();
@@ -86,12 +84,12 @@ export const SubjectList = () => {
 
   const handleSaveSubject = async () => {
     if (currentSubject.name.trim() === "") {
-      alert("Vui lòng nhập tên môn học");
+      showWarning("Vui lòng nhập tên môn học");
       return;
     }
 
     if (!currentSubject.isBasic && currentSubject.majors.length === 0) {
-      alert(
+      showWarning(
         "Vui lòng chọn ít nhất một chuyên ngành hoặc đánh dấu là môn cơ sở"
       );
       return;
@@ -109,8 +107,10 @@ export const SubjectList = () => {
 
       if (isEditMode) {
         await updateSubject(currentSubject.id, subjectData);
+        showSuccess("Cập nhật môn học thành công!");
       } else {
         await addSubject(subjectData);
+        showSuccess("Thêm môn học thành công!");
       }
 
       setModalOpen(false);
@@ -119,6 +119,7 @@ export const SubjectList = () => {
         `Error ${isEditMode ? "updating" : "adding"} subject:`,
         error
       );
+      showError(`Lỗi khi ${isEditMode ? "cập nhật" : "thêm"} môn học!`);
     } finally {
       setIsSaving(false);
       setCurrentSubject({
@@ -133,8 +134,10 @@ export const SubjectList = () => {
   const handleDeleteSubject = async (subjectId) => {
     try {
       await deleteSubject(subjectId);
+      showSuccess("Xóa môn học thành công!");
     } catch (error) {
       console.error("Error deleting subject:", error);
+      showError("Lỗi khi xóa môn học!");
     }
   };
 
@@ -144,6 +147,7 @@ export const SubjectList = () => {
       name: subject.name,
       majors: subject.majors || [],
       isBasic: subject.isBasic || false,
+      createdAt: subject.createdAt, // Giữ nguyên createdAt khi chỉnh sửa
     });
     setIsEditMode(true);
     setModalOpen(true);
@@ -152,8 +156,10 @@ export const SubjectList = () => {
   const handleUpdateSubject = async (newName) => {
     try {
       await updateSubject(currentEdit.id, newName);
+      showSuccess("Cập nhật môn học thành công!");
     } catch (error) {
       console.error("Error updating subject:", error);
+      showError("Lỗi khi cập nhật môn học!");
     }
   };
 
@@ -219,7 +225,6 @@ export const SubjectList = () => {
               size="small"
               sx={{
                 backgroundColor: "#00C853",
-
                 color: "white",
                 fontWeight: "bold",
                 fontSize: "0.75rem",
