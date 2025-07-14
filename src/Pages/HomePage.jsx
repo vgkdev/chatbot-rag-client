@@ -231,6 +231,11 @@ export default function HomePage() {
             - Thêm các biểu tượng (emoji) phù hợp để làm nổi bật nội dung và dễ đọc hơn.
             - Mỗi phần nên có **tiêu đề rõ ràng**, chia nhỏ theo từng mục để người học dễ theo dõi.
             - Ngắt dòng hợp lý để tránh lỗi khi chuyển đổi văn bản.
+            📏 **Độ dài câu trả lời**:
+            - Giữ câu trả lời ngắn gọn, súc tích, tối đa 300 từ cho phần giải thích.
+            - Nếu cần cung cấp thêm chi tiết, tách thành các mục nhỏ với tiêu đề rõ ràng.
+            - Đối với câu hỏi yêu cầu tài liệu, chỉ gợi ý tối đa 3 liên kết tài liệu.
+            - Nếu nội dung quá dài, tóm tắt và cung cấp liên kết tài liệu để người dùng tham khảo thêm.
 
             📚 **Thông tin nền tảng**:
             1. 📝 Tài liệu người dùng đã tải lên:  
@@ -303,6 +308,12 @@ export default function HomePage() {
             🎓 **Thông tin người dùng**:  
             - Ngành học: **${user?.major?.name || "Chưa có chuyên ngành"}**
             - Gợi ý 1-3 tài liệu học phù hợp với ngành nếu có thể.
+            - Nếu không có tài liệu phù hợp, đề xuất tìm kiếm thêm hoặc giải thích khái niệm.
+
+            😊 **Tính tương tác và thân thiện**:
+            - Bắt đầu câu trả lời bằng lời chào hoặc động viên (ví dụ: "Chào bạn! 👋", "Rất vui được hỗ trợ bạn! 😊").
+            - Kết thúc bằng lời khuyến khích hỏi thêm (ví dụ: "Bạn có câu hỏi nào khác không? 😊").
+            - Sử dụng ngôn ngữ gần gũi, tránh quá trang trọng, nhưng giữ tính học thuật.
 
             ---
 
@@ -781,6 +792,62 @@ export default function HomePage() {
                                     style={{
                                       marginBottom: "20px",
                                       lineHeight: "1.2",
+                                    }}
+                                  />
+                                ),
+                                a: ({ node, href, ...props }) => (
+                                  <a
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    {...props}
+                                    style={{
+                                      color: "#1e90ff",
+                                      textDecoration: "underline",
+                                    }}
+                                  />
+                                ),
+                                hr: ({ node, ...props }) => (
+                                  <Divider
+                                    {...props}
+                                    sx={{
+                                      my: 2, // Khoảng cách trên và dưới divider
+                                      borderColor: "#555", // Màu của đường ngang, tùy chỉnh theo theme
+                                    }}
+                                  />
+                                ),
+                                ul: ({ node, ...props }) => (
+                                  <ul
+                                    {...props}
+                                    style={{
+                                      marginBottom: "12px",
+                                      paddingLeft: "24px", // Thụt lề danh sách
+                                      listStyleType: "disc", // Dùng dấu đầu dòng tròn
+                                    }}
+                                  />
+                                ),
+                                li: ({ node, ...props }) => (
+                                  <li
+                                    {...props}
+                                    style={{
+                                      marginBottom: "8px", // Khoảng cách giữa các mục trong danh sách
+                                      lineHeight: "1.5",
+                                    }}
+                                  />
+                                ),
+                                strong: ({ node, ...props }) => (
+                                  <strong
+                                    {...props}
+                                    style={{
+                                      fontWeight: 700, // Đậm hơn cho văn bản in đậm
+                                    }}
+                                  />
+                                ),
+                                em: ({ node, ...props }) => (
+                                  <em
+                                    {...props}
+                                    style={{
+                                      fontStyle: "italic", // In nghiêng
                                     }}
                                   />
                                 ),

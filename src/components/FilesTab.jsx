@@ -149,13 +149,19 @@ export const FilesTab = () => {
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    setFormData({
-      ...formData,
-      file: file,
-      // name: file ? file.name : "",
-    });
+    if (file) {
+      // Kiểm tra định dạng file
+      if (file.type !== "application/pdf") {
+        showWarning("Vui lòng chọn file định dạng PDF!");
+        return;
+      }
+      setFormData({
+        ...formData,
+        file: file,
+        // name: file ? file.name : "",
+      });
+    }
   };
-
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
       showWarning("Tên tài liệu không được để trống!");
