@@ -19,6 +19,8 @@ export const buildVectorStore = async (fullText, apiKey) => {
 
   const embeddings = new GoogleGenerativeAIEmbeddings({ apiKey });
   vectorStore = await MemoryVectorStore.fromDocuments(docs, embeddings);
+
+  console.log(">>check vectorStore: ", vectorStore);
 };
 
 export const getRelevantChunks = async (query, k = 5) => {
