@@ -464,6 +464,7 @@ export default function HomePage() {
   };
 
   const handleClickNewChat = () => {
+    setSelectedChatId(null);
     setChatHistory([]);
     setContext("");
     setLatestBotMessageIndex(-1);
