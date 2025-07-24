@@ -158,7 +158,9 @@ export const AppBar = ({ open, handleDrawerOpen }) => {
                     <ListItemIcon>
                       <Settings fontSize="small" />
                     </ListItemIcon>
-                    Cài đặt
+                    {user.role === 1
+                      ? "Quản lý tài nguyên"
+                      : "Quản lý tài liệu"}
                   </MenuItem>
                 )}
                 <MenuItem onClick={handleLogout}>

@@ -89,7 +89,7 @@ export const LoginPage = () => {
 
         setLoading(false);
         showSuccess("Đăng nhập thành công! Chào mừng bạn trở lại.");
-        navigate("/homepage");
+        navigate("/");
       } catch (error) {
         console.error("Login error: ", error.message);
         setLoading(false);

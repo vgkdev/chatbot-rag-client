@@ -593,3 +593,93 @@ export const getDocumentsWithContent = async () => {
     throw error;
   }
 };
+
+export const saveVectorStoreAndMetadata = async (vectorStoreData, metadata) => {
+  console.log(">>check vectorStoreData: ", vectorStoreData);
+  try {
+    const vectorsCollectionRef = collection(
+      db,
+      "system",
+      "vectorStore",
+      "vectors"
+    );
+    const metadataRef = doc(db, "system", "metadata");
+
+    // Xóa các vector cũ để tránh tích lũy dữ liệu
+    const existingVectors = await getDocs(vectorsCollectionRef);
+    for (const vecDoc of existingVectors.docs) {
+      await deleteDoc(vecDoc.ref);
+    }
+
+    // Lưu từng vector vào một tài liệu riêng
+    for (const [index, vector] of vectorStoreData.memoryVectors.entries()) {
+      await addDoc(vectorsCollectionRef, {
+        index,
+        content: vector.content,
+        metadata: vector.metadata,
+        embedding: vector.embedding,
+      });
+    }
+
+    // Lưu metadata
+    await setDoc(metadataRef, { content: metadata }, { merge: true });
+
+    console.log("Vector store và metadata đã được lưu vào Firebase");
+  } catch (error) {
+    console.error("Lỗi khi lưu vector store và metadata:", error);
+    throw error;
+  }
+};
+
+export const getVectorStoreAndMetadata = async () => {
+  try {
+    const vectorsCollectionRef = collection(
+      db,
+      "system",
+      "vectorStore",
+      "vectors"
+    );
+    const metadataRef = doc(db, "system", "metadata");
+
+    // Lấy tất cả vector từ bộ sưu tập
+    const vectorsSnap = await getDocs(vectorsCollectionRef);
+    const metadataSnap = await getDoc(metadataRef);
+
+    const vectorStoreData = vectorsSnap.empty
+      ? null
+      : {
+          memoryVectors: vectorsSnap.docs
+            .map((doc) => doc.data())
+            .sort((a, b) => a.index - b.index) // Sắp xếp theo index để giữ thứ tự
+            .map((vec) => ({
+              content: vec.content,
+              metadata: vec.metadata,
+              embedding: vec.embedding,
+            })),
+        };
+
+    const metadata = metadataSnap.exists() ? metadataSnap.data().content : "";
+
+    return { vectorStoreData, metadata };
+  } catch (error) {
+    console.error("Lỗi khi lấy vector store và metadata:", error);
+    throw error;
+  }
+};
+
+/**
+ * Lắng nghe thay đổi trên collection chats của một user
+ * @param {string} userId - ID của người dùng
+ * @param {Function} callback - Hàm callback khi có thay đổi
+ * @returns {Function} - Hàm unsubscribe
+ */
+export const subscribeToChats = (userId, callback) => {
+  const chatsRef = collection(db, "users", userId, "chats");
+  return onSnapshot(chatsRef, (snapshot) => {
+    const chats = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    callback(chats);
+  });
+};

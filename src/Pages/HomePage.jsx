@@ -4,7 +4,6 @@ import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
 import CssBaseline from "@mui/material/CssBaseline";
 import MuiAppBar from "@mui/material/AppBar";
-
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import ListIcon from "@mui/icons-material/List";
@@ -28,6 +27,9 @@ import SendIcon from "@mui/icons-material/Send";
 import { AppBar } from "../components/AppBar";
 import { pdfjs } from "react-pdf";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
+import { MemoryVectorStore } from "langchain/vectorstores/memory";
+import { Document } from "@langchain/core/documents";
 import ReactMarkdown from "react-markdown";
 import SmartToyOutlinedIcon from "@mui/icons-material/SmartToyOutlined";
 import ThinkingAnimation from "../components/ThinkingAnimation";
@@ -36,38 +38,30 @@ import { useContext } from "react";
 import { UserContext } from "../context/UserContext";
 import {
   deleteChatFromFirebase,
-  getDocumentsWithContent,
-  getFilesFromFirebase,
+  getVectorStoreAndMetadata,
   loadChatsFromFirebase,
   renameChatInFirebase,
   saveChatToFirebase,
+  subscribeToChats,
 } from "../servers/firebaseUtils";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../configs/firebase";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
-import { ChatItem } from "../components/ChatItem";
-import ConfirmationDialog from "../components/ConfirmationDialog";
-import {
-  buildVectorStore,
-  generateChatTitle,
-  getRelevantChunks,
-} from "../servers/ragProcessor";
-import useSnackbarUtils from "../utils/useSnackbarUtils";
 import { ChatItem2 } from "../components/ChatItem2";
+import ConfirmationDialog from "../components/ConfirmationDialog";
+import { generateChatTitle, getRelevantChunks } from "../servers/ragProcessor";
+import useSnackbarUtils from "../utils/useSnackbarUtils";
 
 const drawerWidth = 300;
 const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
 const MAX_HISTORY_LENGTH = 10;
 
-// console.log(">>>check apiKey: ", apiKey);
 const model = new ChatGoogleGenerativeAI({
   model: "gemini-2.5-flash",
-  // model: "gemini-1.5-flash",
   temperature: 0,
   maxRetries: 3,
-  // maxOutputTokens: 512,
   apiKey: apiKey,
 });
 
@@ -122,26 +116,36 @@ export default function HomePage() {
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
   const [chatToDelete, setChatToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [metadataOfFiles, setMetadataOfFiles] = useState(""); // Metadata của các file
+  const [metadataOfFiles, setMetadataOfFiles] = useState("");
+  const [vectorStore, setVectorStore] = useState(null); // Thêm state để lưu vectorStore
   const { showSuccess, showError } = useSnackbarUtils();
 
   // console.log(">>>check user: ", user.major.name);
 
   useEffect(() => {
-    const fetchChats = async () => {
+    let unsubscribe;
+    const subscribeChats = async () => {
       if (user) {
         setLoadingChats(true);
         try {
-          const loadedChats = await loadChatsFromFirebase(user.userId);
-          setChats(loadedChats);
+          unsubscribe = subscribeToChats(user.userId, (chats) => {
+            setChats(chats);
+            setLoadingChats(false);
+          });
         } catch (error) {
-          console.error("Error loading chats:", error);
-        } finally {
+          console.error("Error subscribing to chats:", error);
           setLoadingChats(false);
         }
       }
     };
-    fetchChats();
+    subscribeChats();
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [user]);
 
   useEffect(() => {
@@ -152,42 +156,55 @@ export default function HomePage() {
   }, [chatHistory]);
 
   useEffect(() => {
-    fetchFiles(); // Lấy danh sách file khi component được mount
+    fetchVectorStoreAndMetadata();
   }, []);
 
-  const fetchFiles = async () => {
+  const fetchVectorStoreAndMetadata = async () => {
     setLoadingFilesFromFirebase(true);
     try {
-      // const files = await getFilesFromFirebase(); // Lấy danh sách file từ Firebase
-      const files = await getDocumentsWithContent();
-      console.log(">>>check file2: ", files);
-      // console.log(">>>check files: ", files);
-      setFileList(files); // Cập nhật state
+      const { vectorStoreData, metadata } = await getVectorStoreAndMetadata();
+      setMetadataOfFiles(metadata || "");
+      setFullText(
+        vectorStoreData
+          ? vectorStoreData.memoryVectors.map((vec) => vec.content).join("\n\n")
+          : ""
+      );
 
-      let combinedContent = ""; // Biến lưu nội dung đã gộp từ tất cả file
-      let combinedMetadata = ""; // Biến lưu metadata của các file
+      // Reconstruct vector store
+      if (vectorStoreData && vectorStoreData.memoryVectors.length > 0) {
+        const embeddings = new GoogleGenerativeAIEmbeddings({ apiKey });
+        const newVectorStore = new MemoryVectorStore(embeddings);
 
-      files.forEach((file) => {
-        const fileInfo = `📁 Tên file: ${file.name}
-          📄 Tên gốc: ${file.fileName}
-          📚 Môn học: ${file.subject.name}
-          📘 Chuyên ngành: ${
-            file.subject.isBasic
-              ? "Cơ sở ngành"
-              : file.subject.majors.map((m) => m.name).join(", ")
-          }
-          🔗 URL: ${file.url}`;
+        // Convert memoryVectors to Document objects for MemoryVectorStore
+        const documents = vectorStoreData.memoryVectors.map(
+          (vec) =>
+            new Document({
+              pageContent: vec.content,
+              metadata: vec.metadata,
+            })
+        );
 
-        combinedMetadata += `${fileInfo}\n\n`;
+        // Add embeddings directly to avoid re-computing
+        newVectorStore.memoryVectors = vectorStoreData.memoryVectors.map(
+          (vec, index) => ({
+            content: vec.content,
+            metadata: vec.metadata,
+            embedding: vec.embedding, // Use stored embedding array
+          })
+        );
 
-        combinedContent += file.textContent + "\n\n";
-      });
-      console.log(">>>check combined PDF Content:\n", combinedContent);
-      setFullText(combinedContent); // Dùng cho vector store
-      setMetadataOfFiles(combinedMetadata); // Dùng cho prompt
-      await buildVectorStore(combinedContent, apiKey);
+        // Add documents to vector store (without recomputing embeddings)
+        await newVectorStore.addDocuments(documents);
+
+        setVectorStore(newVectorStore); // Lưu vào state
+        console.log("Vector store reconstructed successfully");
+      } else {
+        setVectorStore(null); // Clear nếu không có vector
+        console.log("No vector store data found");
+      }
     } catch (error) {
-      console.error("Error fetching files:", error);
+      console.error("Error fetching vector store and metadata:", error);
+      showError("Lỗi khi tải vector store và metadata!");
     } finally {
       setLoadingFilesFromFirebase(false);
     }
@@ -216,8 +233,18 @@ export default function HomePage() {
     setChatHistory(newChatHistory); // Cập nhật chatHistory
     setIsThinking(true);
 
-    const contextFromChunks = await getRelevantChunks(message, 5); // lấy 5 đoạn văn liên quan
-    console.log(">>>check contextFromChunks: ", contextFromChunks);
+    let contextFromChunks = "";
+    try {
+      if (vectorStore) {
+        contextFromChunks = await getRelevantChunks(message, 5, vectorStore); // Truyền vectorStore
+        console.log(">>>check contextFromChunks: ", contextFromChunks);
+      } else {
+        console.log("No vector store available, skipping chunk retrieval");
+      }
+    } catch (error) {
+      console.error("Error retrieving relevant chunks:", error);
+      showError("Lỗi khi tìm nội dung liên quan!");
+    }
 
     try {
       const messages = [
@@ -283,7 +310,7 @@ export default function HomePage() {
             - Giữ câu trả lời ngắn gọn, súc tích, tối đa 300 từ cho phần giải thích.
             - Nếu cần cung cấp thêm chi tiết, tách thành các mục nhỏ với tiêu đề rõ ràng.
             - Đối với câu hỏi yêu cầu tài liệu, chỉ gợi ý tối đa 3 liên kết tài liệu.
-            - Nếu nội dung quá dài, tóm tắt và cung cấp liên kết tài liệu để người dùng tham khảo thê
+            - Nếu nội dung quá dài, tóm tắt và cung cấp liên kết tài liệu để người dùng tham khảo thêm.
 
             📚 **Thông tin nền tảng**:
             1. 📝 Tài liệu người dùng đã tải lên:  
@@ -404,6 +431,7 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error("Error in sendMessage:", error);
+      showError("Lỗi khi gửi tin nhắn!");
     } finally {
       setIsThinking(false);
     }

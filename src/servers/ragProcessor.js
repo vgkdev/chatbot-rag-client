@@ -6,7 +6,6 @@ import {
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
 import { HumanMessage } from "@langchain/core/messages";
 
-let vectorStore = null; // cache tại runtime
 const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
 
 export const buildVectorStore = async (fullText, apiKey) => {
@@ -17,14 +16,21 @@ export const buildVectorStore = async (fullText, apiKey) => {
 
   const docs = await splitter.createDocuments([fullText]);
 
-  const embeddings = new GoogleGenerativeAIEmbeddings({ apiKey });
-  vectorStore = await MemoryVectorStore.fromDocuments(docs, embeddings);
+  const embeddings = new GoogleGenerativeAIEmbeddings({
+    apiKey,
+    // model: "gemini-embedding-001",
+    // embedding-001 (Ngừng hoạt động từ ngày 14 tháng 8 năm 2025)
+    // text-embedding-004 (Ngừng hoạt động kể từ ngày 14 tháng 1 năm 2026)
+  });
+  console.log(">> Embedding model in use:", embeddings.modelName);
+  const vectorStore = await MemoryVectorStore.fromDocuments(docs, embeddings);
 
   console.log(">>check vectorStore: ", vectorStore);
+  return vectorStore;
 };
 
-export const getRelevantChunks = async (query, k = 5) => {
-  if (!vectorStore) throw new Error("Vector store chưa được khởi tạo");
+export const getRelevantChunks = async (query, k = 5, vectorStore) => {
+  if (!vectorStore) throw new Error("Vector store chưa được cung cấp");
 
   const retriever = vectorStore.asRetriever({ k });
   const docs = await retriever.getRelevantDocuments(query);

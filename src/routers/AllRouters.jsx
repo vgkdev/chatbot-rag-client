@@ -59,7 +59,11 @@ const AllRoutes = () => {
               path="/"
               element={
                 <ProtectedRoute>
-                  <Navigate to="/homepage" replace />
+                  {user?.role === 1 || user?.role === 2 ? (
+                    <Navigate to="/settings" replace />
+                  ) : (
+                    <Navigate to="/homepage" replace />
+                  )}
                 </ProtectedRoute>
               }
             />
