@@ -447,6 +447,7 @@ export default function HomePage() {
       const chatDoc = await getDoc(chatRef);
       if (chatDoc.exists()) {
         const chatData = chatDoc.data();
+        setSelectedChatId(chatId);
         setChatHistory(chatData.chatHistory);
         setContext(chatData.context);
         setLatestBotMessageIndex(chatData.chatHistory.length - 1);
@@ -661,7 +662,13 @@ export default function HomePage() {
           </IconButton>
         </DrawerHeader>
         <Divider />
-        <List>
+        <List
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
           {loadingChats ? (
             <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
               <CircularProgress size={24} />

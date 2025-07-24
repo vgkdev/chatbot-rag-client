@@ -88,7 +88,8 @@ export const ChatItem2 = ({
         cursor: "pointer",
         position: "relative",
         borderRadius: "8px",
-        backgroundColor: "#121212", // Đen
+        backgroundColor: chat.id === selectedChatId ? "#424242" : "#121212", // Nền xanh lam cho chat đang mở, đen cho chat khác
+        color: "#ababab",
         "&:hover": {
           backgroundColor: "#424242", // Xám đậm
           color: "#ffffff",
@@ -97,6 +98,7 @@ export const ChatItem2 = ({
         mb: 1,
         p: 1,
         paddingRight: isRenaming ? "70px" : "48px", // Thêm khoảng trống cho nút khi rename
+        width: "95%",
       }}
       key={chat.id}
       onClick={!isRenaming ? () => loadChat(chat.id) : undefined}
