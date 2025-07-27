@@ -43,23 +43,10 @@ export const buildVectorStore = async (fullText, documentId, apiKey) => {
 export const getRelevantChunks = async (
   query,
   k = 5,
-  vectorStores,
+  combinedVectorStore,
   similarityThreshold = 0.7
 ) => {
-  if (!vectorStores || vectorStores.length === 0)
-    throw new Error("Vector store chưa được cung cấp");
-
-  // Kết hợp tất cả vector store để tìm kiếm
-  const embeddings = new GoogleGenerativeAIEmbeddings({ apiKey });
-  const combinedVectorStore = new MemoryVectorStore(embeddings);
-
-  for (const vectorStoreData of vectorStores) {
-    const documents = vectorStoreData.memoryVectors.map((vec) => ({
-      pageContent: vec.content,
-      metadata: vec.metadata,
-    }));
-    await combinedVectorStore.addDocuments(documents);
-  }
+  if (!combinedVectorStore) throw new Error("Vector store chưa được cung cấp");
 
   //---------cách cũ-----------------------------------------
   // const retriever = combinedVectorStore.asRetriever({ k });

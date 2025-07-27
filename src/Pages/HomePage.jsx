@@ -163,9 +163,21 @@ export default function HomePage() {
     setLoadingFilesFromFirebase(true);
     try {
       const { vectorStoreData, metadata } = await getVectorStoreAndMetadata();
+      const embeddings = new GoogleGenerativeAIEmbeddings({ apiKey });
+      const combinedVectorStore = new MemoryVectorStore(embeddings);
+
+      // Kết hợp tất cả vector store vào một MemoryVectorStore duy nhất
+      for (const vectorStoreDataItem of vectorStoreData) {
+        const documents = vectorStoreDataItem.memoryVectors.map((vec) => ({
+          pageContent: vec.content,
+          metadata: vec.metadata,
+        }));
+        await combinedVectorStore.addDocuments(documents);
+      }
+
       setMetadataOfFiles(metadata || "");
-      setVectorStore(vectorStoreData); // Lưu danh sách vector store
-      console.log(">>>Vector stores loaded successfully: ", vectorStoreData);
+      setVectorStore(combinedVectorStore); // Lưu combinedVectorStore
+      console.log(">>>Vector store loaded successfully: ", combinedVectorStore);
     } catch (error) {
       console.error("Error fetching vector store and metadata:", error);
       showError("Lỗi khi tải vector store và metadata!");
@@ -199,7 +211,7 @@ export default function HomePage() {
 
     let contextFromChunks = "";
     try {
-      if (vectorStore && vectorStore.length > 0) {
+      if (vectorStore) {
         contextFromChunks = await getRelevantChunks(
           message,
           5,
@@ -239,28 +251,49 @@ export default function HomePage() {
                   \`\`\`
 
               - **Câu hỏi yêu cầu giải thích khái niệm** (ví dụ: "Giải thích hồi quy tuyến tính"):
-                - Cung cấp giải thích ngắn gọn (tối đa 300 từ), dễ hiểu, sử dụng ví dụ minh họa nếu cần.
-                - Chỉ chèn liên kết tài liệu nếu nội dung liên quan trực tiếp và đủ ngữ cảnh để hỗ trợ giải thích.
-
-              - **Câu hỏi yêu cầu so sánh hoặc phân tích** (ví dụ: "So sánh thuật toán Dijkstra và Bellman-Ford"):
-                - Trả lời theo cấu trúc: **Giới thiệu**, **Điểm giống nhau**, **Điểm khác biệt**, **Kết luận**.
-                - Đảm bảo câu hỏi đủ cụ thể (nêu rõ thuật toán, tiêu chí so sánh) trước khi trả lời. Nếu không, yêu cầu làm rõ như trên.
-
-              - **Câu hỏi yêu cầu tính toán** (ví dụ: "Tính tích phân của x^2"):
-                - Trả lời từng bước, sử dụng ký tự Unicode cho công thức toán học (ví dụ: aₙ, ×) trong code block (\`\`\`) hoặc code inline (\`...\`) trên dòng riêng biệt.
-                - Nếu câu hỏi không rõ (ví dụ: thiếu giới hạn tích phân), yêu cầu làm rõ:
+                - Nếu có nội dung liên quan trong \`\`\`${contextFromChunks}\`\`\` (và không phải "Không tìm thấy nội dung liên quan."), cung cấp giải thích ngắn gọn (tối đa 300 từ), dễ hiểu, sử dụng ví dụ minh họa nếu cần, dựa trên nội dung từ \`\`\`${contextFromChunks}\`\`\`.
+                - Nếu \`\`\`${contextFromChunks}\`\`\` là "Không tìm thấy nội dung liên quan.", trả lời:
                   \`\`\`markdown
-                  📌 Câu hỏi của bạn chưa đủ thông tin (ví dụ: giới hạn tích phân).  
-                  Vui lòng cung cấp thêm chi tiết để tôi hỗ trợ chính xác hơn!
+                  😥 Xin lỗi, hiện tại tôi chưa có dữ liệu liên quan đến câu hỏi của bạn.  
+                  📎 Bạn có thể gửi thêm tài liệu để tôi hỗ trợ tốt hơn,  
+                  hoặc đặt một câu hỏi khác nhé! 😊
                   \`\`\`
 
+              - **Câu hỏi yêu cầu so sánh hoặc phân tích** (ví dụ: "So sánh thuật toán Dijkstra và Bellman-Ford"):
+                - Nếu có nội dung liên quan trong \`\`\`${contextFromChunks}\`\`\` (và không phải "Không tìm thấy nội dung liên quan."), trả lời theo cấu trúc: **Giới thiệu**, **Điểm giống nhau**, **Điểm khác biệt**, **Kết luận**, dựa trên \`\`\`${contextFromChunks}\`\`\`.
+                - Nếu \`\`\`${contextFromChunks}\`\`\` là "Không tìm thấy nội dung liên quan.", trả lời:
+                  \`\`\`markdown
+                  😥 Xin lỗi, hiện tại tôi chưa có dữ liệu liên quan đến câu hỏi của bạn.  
+                  📎 Bạn có thể gửi thêm tài liệu để tôi hỗ trợ tốt hơn,  
+                  hoặc đặt một câu hỏi khác nhé! 😊
+                  \`\`\`
+                - Đảm bảo câu hỏi đủ cụ thể (nêu rõ thuật toán, tiêu chí so sánh). Nếu không, yêu cầu làm rõ như trên.
+
+              - **Câu hỏi yêu cầu tính toán** (ví dụ: "Tính tích phân của x^2"):
+                - Nếu có nội dung liên quan trong \`\`\`${contextFromChunks}\`\`\` (và không phải "Không tìm thấy nội dung liên quan."), trả lời từng bước, sử dụng ký tự Unicode cho công thức toán học (ví dụ: aₙ, ×) trong code block (\`\`\`) hoặc code inline (\`...\`) trên dòng riêng biệt, dựa trên \`\`\`${contextFromChunks}\`\`\`.
+                - Nếu \`\`\`${contextFromChunks}\`\`\` là "Không tìm thấy nội dung liên quan.", trả lời:
+                  \`\`\`markdown
+                  😥 Xin lỗi, hiện tại tôi chưa có dữ liệu liên quan đến câu hỏi của bạn.  
+                  📎 Bạn có thể gửi thêm tài liệu để tôi hỗ trợ tốt hơn,  
+                  hoặc đặt một câu hỏi khác nhé! 😊
+                  \`\`\`
+                - Nếu câu hỏi không rõ (ví dụ: thiếu giới hạn tích phân), yêu cầu làm rõ:
+                \`\`\`markdown
+                📌 Câu hỏi của bạn chưa đủ thông tin (ví dụ: giới hạn tích phân).  
+                Vui lòng cung cấp thêm chi tiết để tôi hỗ trợ chính xác hơn!
+                \`\`\`
+
               - **Câu hỏi yêu cầu tài liệu** (có từ khóa: "gửi tài liệu", "gửi file", "gửi link", "muốn tài liệu"):
-                - Chỉ cung cấp liên kết tài liệu nếu câu hỏi nêu rõ môn học, loại tài liệu, hoặc nội dung cụ thể (ví dụ: "Gửi giáo trình môn Hệ điều hành").
+                - Chỉ cung cấp liên kết tài liệu nếu câu hỏi nêu rõ môn học, loại tài liệu, hoặc nội dung cụ thể (ví dụ: "Gửi giáo trình môn Hệ điều hành") và có nội dung liên quan trong \`\`\`${contextFromChunks}\`\`\` hoặc \`\`\`${metadataOfFiles}\`\`\`.
                 - Sử dụng định dạng:
                   \`\`\`markdown
                   📎 Link tài liệu: [tên file - tên file upload](url)
                   \`\`\`
-                - Nếu câu hỏi mơ hồ (ví dụ: "Gửi tài liệu"), áp dụng quy tắc yêu cầu làm rõ ở trên.
+                - Nếu \`\`\`${contextFromChunks}\`\`\` là "Không tìm thấy nội dung liên quan." hoặc không có tài liệu phù hợp, trả lời:
+                  \`\`\`markdown
+                  📌 Hiện tại chưa có tài liệu phù hợp với câu hỏi của bạn.  
+                  Bạn có thể thử hỏi cụ thể hơn (ví dụ: "Giáo trình môn Hệ điều hành") để tôi hỗ trợ!
+                  \`\`\`
 
               - **Khi không tìm thấy tài liệu phù hợp**:
                 - Trả lời:
@@ -317,9 +350,14 @@ export default function HomePage() {
               - Cần loại tài liệu nào? (bài giảng, giáo trình, đề cương, v.v.)
             - Trả lời mẫu gợi ý:
             \`\`\`markdown
+            mẫu 1:
             📌 Câu hỏi bạn vừa gửi chưa đủ thông tin.  
             Vui lòng cho biết rõ hơn bạn cần tài liệu gì (môn học, loại tài liệu, nội dung)?  
             Ví dụ: "Tôi cần giáo trình môn Cấu trúc dữ liệu."
+            mẫu 2:
+            😥 Xin lỗi, hiện tại tôi chưa có dữ liệu liên quan đến câu hỏi này.  
+            📎 Bạn có thể tải lên thêm tài liệu liên quan để tôi hỗ trợ tốt hơn,  
+            hoặc thử đặt một câu hỏi khác nhé! 😊
             \`\`\`
           `,
         },
