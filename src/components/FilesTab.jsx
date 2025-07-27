@@ -29,8 +29,9 @@ import {
   getDocuments,
   deleteDocument,
   updateDocument,
+  rebuildAllVectorStores,
 } from "../servers/firebaseUtils";
-import { Edit } from "@mui/icons-material";
+import { BuildCircleOutlined, Edit } from "@mui/icons-material";
 import useSnackbarUtils from "../utils/useSnackbarUtils";
 import { buildVectorStore } from "../servers/ragProcessor";
 
@@ -46,6 +47,7 @@ export const FilesTab = () => {
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
   const [isUpLoading, setIsUpLoading] = useState(false);
+  const [isRebuilding, setIsRebuilding] = useState(false);
   const { showSuccess, showError, showWarning } = useSnackbarUtils();
 
   useEffect(() => {
@@ -235,23 +237,26 @@ export const FilesTab = () => {
     }
   };
 
-  // Hàm tiền xử lý nội dung để giảm khoảng trắng và dòng trống
-  const preprocessContent = (content) => {
-    if (!content) return "";
-    // Xóa khoảng trắng đầu/cuối dòng, gộp nhiều dấu cách thành một, gộp nhiều dòng trống thành một
-    return content
-      .split("\n")
-      .map((line) => line.trim().replace(/\s+/g, " ")) // Xóa khoảng trắng dư thừa trong mỗi dòng
-      .filter((line) => line.length > 0) // Loại bỏ dòng trống
-      .join("\n") // Gộp lại với một dòng trống duy nhất
-      .trim(); // Xóa khoảng trắng đầu/cuối toàn bộ nội dung
-  };
-
   const handleOpenFile = (url) => {
     if (url) {
       window.open(url, "_blank");
     } else {
       showError("Không tìm thấy URL của file!");
+    }
+  };
+
+  // Hàm xử lý rebuild vector stores
+  const handleRebuildVectorStores = async () => {
+    try {
+      setIsRebuilding(true);
+      await rebuildAllVectorStores();
+      await fetchFiles(); // Cập nhật lại danh sách file sau khi rebuild
+      showSuccess("Xây dựng lại vector stores thành công!");
+    } catch (error) {
+      console.error("Error rebuilding vector stores:", error);
+      showError("Lỗi khi xây dựng lại vector stores!");
+    } finally {
+      setIsRebuilding(false);
     }
   };
 
@@ -366,7 +371,7 @@ export const FilesTab = () => {
 
   return (
     <Box sx={{ padding: 2 }}>
-      <Box display="flex" justifyContent="flex-end" mb={2}>
+      <Box display="flex" justifyContent="flex-end" mb={2} gap={1}>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -377,6 +382,18 @@ export const FilesTab = () => {
           }}
         >
           Thêm tài liệu
+        </Button>
+        <Button
+          variant="contained"
+          startIcon={<BuildCircleOutlined />}
+          onClick={handleRebuildVectorStores}
+          disabled={isRebuilding}
+          sx={{
+            backgroundColor: "#1976d2",
+            "&:hover": { backgroundColor: "#1565c0" },
+          }}
+        >
+          {isRebuilding ? "Đang xây dựng..." : "Xây dựng lại Vector Stores"}
         </Button>
       </Box>
 

@@ -20,6 +20,7 @@ import {
 import { db, storage } from "../configs/firebase";
 import readPdfFile from "../utils/readPdfFile";
 import { buildVectorStore } from "./ragProcessor";
+import { preprocessContent } from "../utils/preprocessContent";
 
 export const fetchAllUsers = async () => {
   try {
@@ -461,6 +462,8 @@ export const addDocument = async (documentData) => {
     let textContent = "";
     if (documentData.fileName?.endsWith(".pdf")) {
       textContent = await readPdfFile(documentData.url);
+      // Áp dụng preprocessContent trước khi build vector store
+      textContent = preprocessContent(textContent);
     }
 
     // Tạo vector store cho tài liệu, sử dụng docRef.id làm documentId
@@ -720,6 +723,40 @@ const updateMetadata = async () => {
     await setDoc(metadataRef, { content: combinedMetadata }, { merge: true });
   } catch (error) {
     console.error("Error updating metadata:", error);
+    throw error;
+  }
+};
+
+// Hàm xây dựng lại vector stores cho tất cả tài liệu
+export const rebuildAllVectorStores = async () => {
+  try {
+    const documents = await getDocuments();
+    console.log(">>>check documents for rebuilding vector stores:", documents);
+
+    for (const document of documents) {
+      if (document.fileName?.endsWith(".pdf")) {
+        let textContent = await readPdfFile(document.url);
+        textContent = preprocessContent(textContent);
+
+        const vectorStore = await buildVectorStore(
+          textContent,
+          document.id,
+          import.meta.env.VITE_GOOGLE_API_KEY
+        );
+
+        const docRef = doc(db, "system", "documents", "items", document.id);
+        await updateDoc(docRef, {
+          vectorStore: vectorStore.memoryVectors,
+        });
+      }
+    }
+
+    await updateMetadata();
+
+    console.log("All vector stores rebuilt successfully");
+    return true;
+  } catch (error) {
+    console.error("Error rebuilding vector stores:", error);
     throw error;
   }
 };
