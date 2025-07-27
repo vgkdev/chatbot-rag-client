@@ -164,44 +164,8 @@ export default function HomePage() {
     try {
       const { vectorStoreData, metadata } = await getVectorStoreAndMetadata();
       setMetadataOfFiles(metadata || "");
-      setFullText(
-        vectorStoreData
-          ? vectorStoreData.memoryVectors.map((vec) => vec.content).join("\n\n")
-          : ""
-      );
-
-      // Reconstruct vector store
-      if (vectorStoreData && vectorStoreData.memoryVectors.length > 0) {
-        const embeddings = new GoogleGenerativeAIEmbeddings({ apiKey });
-        const newVectorStore = new MemoryVectorStore(embeddings);
-
-        // Convert memoryVectors to Document objects for MemoryVectorStore
-        const documents = vectorStoreData.memoryVectors.map(
-          (vec) =>
-            new Document({
-              pageContent: vec.content,
-              metadata: vec.metadata,
-            })
-        );
-
-        // Add embeddings directly to avoid re-computing
-        newVectorStore.memoryVectors = vectorStoreData.memoryVectors.map(
-          (vec, index) => ({
-            content: vec.content,
-            metadata: vec.metadata,
-            embedding: vec.embedding, // Use stored embedding array
-          })
-        );
-
-        // Add documents to vector store (without recomputing embeddings)
-        await newVectorStore.addDocuments(documents);
-
-        setVectorStore(newVectorStore); // Lưu vào state
-        console.log("Vector store reconstructed successfully");
-      } else {
-        setVectorStore(null); // Clear nếu không có vector
-        console.log("No vector store data found");
-      }
+      setVectorStore(vectorStoreData); // Lưu danh sách vector store
+      console.log(">>>Vector stores loaded successfully: ", vectorStoreData);
     } catch (error) {
       console.error("Error fetching vector store and metadata:", error);
       showError("Lỗi khi tải vector store và metadata!");
@@ -235,8 +199,13 @@ export default function HomePage() {
 
     let contextFromChunks = "";
     try {
-      if (vectorStore) {
-        contextFromChunks = await getRelevantChunks(message, 5, vectorStore); // Truyền vectorStore
+      if (vectorStore && vectorStore.length > 0) {
+        contextFromChunks = await getRelevantChunks(
+          message,
+          5,
+          vectorStore,
+          0.8
+        );
         console.log(">>>check contextFromChunks: ", contextFromChunks);
       } else {
         console.log("No vector store available, skipping chunk retrieval");

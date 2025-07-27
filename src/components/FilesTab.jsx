@@ -29,8 +29,6 @@ import {
   getDocuments,
   deleteDocument,
   updateDocument,
-  saveVectorStoreAndMetadata,
-  getDocumentsWithContent,
 } from "../servers/firebaseUtils";
 import { Edit } from "@mui/icons-material";
 import useSnackbarUtils from "../utils/useSnackbarUtils";
@@ -101,18 +99,11 @@ export const FilesTab = () => {
 
   const handleDeleteFile = async (fileId) => {
     try {
-      // Tìm file để lấy tên file trước khi xóa
       const fileToDelete = fileList.find((file) => file.id === fileId);
       if (fileToDelete) {
-        // Xóa file từ Storage
         await deleteFileFromFirebase(fileToDelete.fileName);
-
-        // Xóa document từ Firestore (cần thêm hàm deleteDocument trong firebaseUtils)
         await deleteDocument(fileId);
-
-        // Cập nhật UI
         setFileList(fileList.filter((file) => file.id !== fileId));
-        await updateVectorStoreAndMetadata();
         showSuccess("Xóa tài liệu thành công!");
       }
     } catch (error) {
@@ -180,27 +171,18 @@ export const FilesTab = () => {
       return;
     }
     try {
-      if (formData.file && formData.subject) {
-        setIsUpLoading(true);
-        // Upload file và lưu thông tin phân loại
-        const fileUrl = await uploadFileToFirebase(formData.file);
-        console.log("File uploaded with classification:", {
-          ...formData,
-          url: fileUrl,
-        });
+      setIsUpLoading(true);
+      const fileUrl = await uploadFileToFirebase(formData.file);
+      await addDocument({
+        name: formData.name,
+        fileName: formData.file.name,
+        url: fileUrl,
+        subject: formData.subject || null,
+      });
 
-        await addDocument({
-          name: formData.name,
-          fileName: formData.file.name,
-          url: fileUrl,
-          subject: formData.subject || null,
-        });
-
-        await fetchFiles();
-        await updateVectorStoreAndMetadata();
-        handleCloseModal();
-        showSuccess("Tải lên tài liệu thành công!");
-      }
+      await fetchFiles();
+      handleCloseModal();
+      showSuccess("Tải lên tài liệu thành công!");
     } catch (error) {
       console.error("Error uploading classified file:", error);
       showError("Lỗi khi tải lên tài liệu!");
@@ -224,29 +206,22 @@ export const FilesTab = () => {
       return;
     }
     try {
-      if (currentDocument) {
-        setIsUpLoading(true);
-        console.log(">>>check currentDocument:", currentDocument);
-        console.log(">>>check formData:", formData);
-        const updateData = {
-          name: formData.name || currentDocument.name,
-          subject: {
-            ...formData.subject, // Giữ nguyên các trường khác của subject
-            id: formData.subject?.id || currentDocument.subject.id,
-            name: formData.subject?.name || currentDocument.subject.name,
-          },
-          url: currentDocument.url, // Giữ nguyên URL
-          createdAt: currentDocument.createdAt, // Giữ nguyên ngày tạo
-        };
+      setIsUpLoading(true);
+      const updateData = {
+        name: formData.name || currentDocument.name,
+        subject: {
+          ...formData.subject,
+          id: formData.subject?.id || currentDocument.subject.id,
+          name: formData.subject?.name || currentDocument.subject.name,
+        },
+        url: currentDocument.url,
+      };
 
-        await updateDocument(currentDocument.id, updateData);
-
-        await fetchFiles();
-        await updateVectorStoreAndMetadata();
-        setOpenUpdateModal(false);
-        setCurrentDocument(null);
-        showSuccess("Cập nhật tài liệu thành công!");
-      }
+      await updateDocument(currentDocument.id, updateData);
+      await fetchFiles();
+      setOpenUpdateModal(false);
+      setCurrentDocument(null);
+      showSuccess("Cập nhật tài liệu thành công!");
     } catch (error) {
       console.error("Error updating document:", error);
       showError("Lỗi khi cập nhật tài liệu!");
@@ -270,46 +245,6 @@ export const FilesTab = () => {
       .filter((line) => line.length > 0) // Loại bỏ dòng trống
       .join("\n") // Gộp lại với một dòng trống duy nhất
       .trim(); // Xóa khoảng trắng đầu/cuối toàn bộ nội dung
-  };
-
-  const updateVectorStoreAndMetadata = async () => {
-    try {
-      const files = await getDocumentsWithContent();
-      let combinedContent = "";
-      let combinedMetadata = "";
-
-      files.forEach((file) => {
-        const fileInfo = `📁 Tên file: ${file.name}
-        📄 Tên gốc: ${file.fileName}
-        📚 Môn học: ${file.subject.name}
-        📘 Chuyên ngành: ${
-          file.subject.isBasic
-            ? "Cơ sở ngành"
-            : file.subject.majors.map((m) => m.name).join(", ")
-        }
-        🔗 URL: ${file.url}`;
-        combinedMetadata += `${fileInfo}\n\n`;
-        combinedContent += preprocessContent(file.textContent) + "\n\n";
-      });
-
-      const vectorStore = await buildVectorStore(
-        combinedContent,
-        import.meta.env.VITE_GOOGLE_API_KEY
-      );
-      const serializedVectorStore = {
-        memoryVectors: vectorStore.memoryVectors.map((vec, index) => ({
-          content: vec.content,
-          metadata: vec.metadata,
-          embedding: vec.embedding,
-          index, // Thêm index để giữ thứ tự
-        })),
-      };
-
-      await saveVectorStoreAndMetadata(serializedVectorStore, combinedMetadata);
-    } catch (error) {
-      console.error("Error updating vector store and metadata:", error);
-      showError("Lỗi khi cập nhật vector store và metadata!");
-    }
   };
 
   const handleOpenFile = (url) => {

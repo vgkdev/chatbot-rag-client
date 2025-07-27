@@ -19,6 +19,7 @@ import {
 } from "firebase/storage";
 import { db, storage } from "../configs/firebase";
 import readPdfFile from "../utils/readPdfFile";
+import { buildVectorStore } from "./ragProcessor";
 
 export const fetchAllUsers = async () => {
   try {
@@ -446,6 +447,8 @@ export const updateMajor = async (majorId, newName) => {
 export const addDocument = async (documentData) => {
   try {
     const documentsRef = collection(db, "system", "documents", "items");
+
+    // Thêm tài liệu vào Firestore trước để lấy documentId
     const docRef = await addDoc(documentsRef, {
       name: documentData.name,
       fileName: documentData.fileName,
@@ -453,6 +456,28 @@ export const addDocument = async (documentData) => {
       subject: documentData.subject || null,
       createdAt: new Date(),
     });
+
+    // Đọc nội dung file PDF nếu có
+    let textContent = "";
+    if (documentData.fileName?.endsWith(".pdf")) {
+      textContent = await readPdfFile(documentData.url);
+    }
+
+    // Tạo vector store cho tài liệu, sử dụng docRef.id làm documentId
+    const vectorStore = await buildVectorStore(
+      textContent,
+      docRef.id, // Sử dụng documentId từ Firestore
+      import.meta.env.VITE_GOOGLE_API_KEY
+    );
+
+    // Cập nhật tài liệu với vector store
+    await updateDoc(docRef, {
+      vectorStore: vectorStore.memoryVectors,
+    });
+
+    // Cập nhật metadata
+    await updateMetadata();
+
     return docRef.id;
   } catch (error) {
     console.error("Error adding document:", error);
@@ -505,17 +530,38 @@ export const getDocumentById = async (documentId) => {
 export const updateDocument = async (documentId, updateData) => {
   try {
     const docRef = doc(db, "system", "documents", "items", documentId);
-    console.log(">>>check updateData: ", updateData);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      throw new Error("Document not found");
+    }
+
+    const existingData = docSnap.data();
+    let vectorStore = existingData.vectorStore;
+
+    // Nếu cập nhật file mới, tạo lại vector store
+    if (updateData.url && updateData.url !== existingData.url) {
+      const textContent = await readPdfFile(updateData.url);
+      vectorStore = await buildVectorStore(
+        textContent,
+        documentId,
+        import.meta.env.VITE_GOOGLE_API_KEY
+      ).memoryVectors;
+    }
+
     await setDoc(
       docRef,
       {
         name: updateData.name,
         subject: updateData.subject,
         url: updateData.url,
-        // createdAt: updateData.createdAt,
+        vectorStore,
       },
       { merge: true }
     );
+
+    // Cập nhật metadata
+    await updateMetadata();
   } catch (error) {
     console.error("Error updating document:", error);
     throw error;
@@ -531,6 +577,9 @@ export const deleteDocument = async (documentId) => {
   try {
     const docRef = doc(db, "system", "documents", "items", documentId);
     await deleteDoc(docRef);
+
+    // Cập nhật metadata
+    await updateMetadata();
   } catch (error) {
     console.error("Error deleting document:", error);
     throw error;
@@ -562,107 +611,70 @@ export const getDocumentsWithContent = async () => {
     const documentsRef = collection(db, "system", "documents", "items");
     const querySnapshot = await getDocs(documentsRef);
 
-    const documentsWithContent = await Promise.all(
-      querySnapshot.docs.map(async (doc) => {
-        const documentData = doc.data();
-        let textContent = "";
-
-        if (documentData.fileName?.endsWith(".pdf")) {
-          try {
-            textContent = await readPdfFile(documentData.url);
-          } catch (error) {
-            console.error(
-              `Error reading PDF content for ${documentData.fileName}:`,
-              error
-            );
-            textContent = "Không thể đọc nội dung file";
-          }
-        }
-
-        return {
-          id: doc.id,
-          ...documentData,
-          textContent,
-        };
-      })
-    );
-
-    return documentsWithContent;
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      textContent: "", // Không cần đọc lại nội dung vì đã có vector store
+    }));
   } catch (error) {
     console.error("Error getting documents with content:", error);
     throw error;
   }
 };
 
-export const saveVectorStoreAndMetadata = async (vectorStoreData, metadata) => {
-  console.log(">>check vectorStoreData: ", vectorStoreData);
-  try {
-    const vectorsCollectionRef = collection(
-      db,
-      "system",
-      "vectorStore",
-      "vectors"
-    );
-    const metadataRef = doc(db, "system", "metadata");
+// export const saveVectorStoreAndMetadata = async (vectorStoreData, metadata) => {
+//   console.log(">>check vectorStoreData: ", vectorStoreData);
+//   try {
+//     const vectorsCollectionRef = collection(
+//       db,
+//       "system",
+//       "vectorStore",
+//       "vectors"
+//     );
+//     const metadataRef = doc(db, "system", "metadata");
 
-    // Xóa các vector cũ để tránh tích lũy dữ liệu
-    const existingVectors = await getDocs(vectorsCollectionRef);
-    for (const vecDoc of existingVectors.docs) {
-      await deleteDoc(vecDoc.ref);
-    }
+//     // Xóa các vector cũ để tránh tích lũy dữ liệu
+//     const existingVectors = await getDocs(vectorsCollectionRef);
+//     for (const vecDoc of existingVectors.docs) {
+//       await deleteDoc(vecDoc.ref);
+//     }
 
-    // Lưu từng vector vào một tài liệu riêng
-    for (const [index, vector] of vectorStoreData.memoryVectors.entries()) {
-      await addDoc(vectorsCollectionRef, {
-        index,
-        content: vector.content,
-        metadata: vector.metadata,
-        embedding: vector.embedding,
-      });
-    }
+//     // Lưu từng vector vào một tài liệu riêng
+//     for (const [index, vector] of vectorStoreData.memoryVectors.entries()) {
+//       await addDoc(vectorsCollectionRef, {
+//         index,
+//         content: vector.content,
+//         metadata: vector.metadata,
+//         embedding: vector.embedding,
+//       });
+//     }
 
-    // Lưu metadata
-    await setDoc(metadataRef, { content: metadata }, { merge: true });
+//     // Lưu metadata
+//     await setDoc(metadataRef, { content: metadata }, { merge: true });
 
-    console.log("Vector store và metadata đã được lưu vào Firebase");
-  } catch (error) {
-    console.error("Lỗi khi lưu vector store và metadata:", error);
-    throw error;
-  }
-};
+//     console.log("Vector store và metadata đã được lưu vào Firebase");
+//   } catch (error) {
+//     console.error("Lỗi khi lưu vector store và metadata:", error);
+//     throw error;
+//   }
+// };
 
 export const getVectorStoreAndMetadata = async () => {
   try {
-    const vectorsCollectionRef = collection(
-      db,
-      "system",
-      "vectorStore",
-      "vectors"
-    );
     const metadataRef = doc(db, "system", "metadata");
-
-    // Lấy tất cả vector từ bộ sưu tập
-    const vectorsSnap = await getDocs(vectorsCollectionRef);
     const metadataSnap = await getDoc(metadataRef);
-
-    const vectorStoreData = vectorsSnap.empty
-      ? null
-      : {
-          memoryVectors: vectorsSnap.docs
-            .map((doc) => doc.data())
-            .sort((a, b) => a.index - b.index) // Sắp xếp theo index để giữ thứ tự
-            .map((vec) => ({
-              content: vec.content,
-              metadata: vec.metadata,
-              embedding: vec.embedding,
-            })),
-        };
-
     const metadata = metadataSnap.exists() ? metadataSnap.data().content : "";
 
-    return { vectorStoreData, metadata };
+    // Lấy tất cả vector store từ các tài liệu
+    const documents = await getDocumentsWithContent();
+    const vectorStores = documents.map((doc) => ({
+      documentId: doc.id,
+      memoryVectors: doc.vectorStore || [],
+    }));
+
+    return { vectorStoreData: vectorStores, metadata };
   } catch (error) {
-    console.error("Lỗi khi lấy vector store và metadata:", error);
+    console.error("Error getting vector store and metadata:", error);
     throw error;
   }
 };
@@ -682,4 +694,32 @@ export const subscribeToChats = (userId, callback) => {
     }));
     callback(chats);
   });
+};
+
+const updateMetadata = async () => {
+  try {
+    const documents = await getDocuments();
+    console.log(">>>check documents for metadata:", documents);
+    let combinedMetadata = "";
+
+    documents.forEach((file) => {
+      const fileInfo = `📁 Tên file: ${file.name}
+      📁 ID file: ${file.id}
+      📄 Tên gốc: ${file.fileName}
+      📚 Môn học: ${file.subject?.name || "Không có môn học"}
+      📘 Chuyên ngành: ${
+        file.subject?.isBasic
+          ? "Cơ sở ngành"
+          : file.subject?.majors?.map((m) => m.name).join(", ") || "Không có"
+      }
+      🔗 URL: ${file.url}`;
+      combinedMetadata += `${fileInfo}\n\n`;
+    });
+
+    const metadataRef = doc(db, "system", "metadata");
+    await setDoc(metadataRef, { content: combinedMetadata }, { merge: true });
+  } catch (error) {
+    console.error("Error updating metadata:", error);
+    throw error;
+  }
 };

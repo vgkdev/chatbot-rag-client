@@ -8,33 +8,77 @@ import { HumanMessage } from "@langchain/core/messages";
 
 const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
 
-export const buildVectorStore = async (fullText, apiKey) => {
+export const buildVectorStore = async (fullText, documentId, apiKey) => {
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: 1024,
     chunkOverlap: 100,
   });
 
-  const docs = await splitter.createDocuments([fullText]);
+  const docs = await splitter.createDocuments([fullText], [{ documentId }]); // Thêm metadata documentId
 
   const embeddings = new GoogleGenerativeAIEmbeddings({
     apiKey,
-    // model: "gemini-embedding-001",
-    // embedding-001 (Ngừng hoạt động từ ngày 14 tháng 8 năm 2025)
-    // text-embedding-004 (Ngừng hoạt động kể từ ngày 14 tháng 1 năm 2026)
   });
   console.log(">> Embedding model in use:", embeddings.modelName);
   const vectorStore = await MemoryVectorStore.fromDocuments(docs, embeddings);
 
-  console.log(">>check vectorStore: ", vectorStore);
-  return vectorStore;
+  // Serialize vector store để lưu vào Firestore
+  const serializedVectorStore = {
+    memoryVectors: vectorStore.memoryVectors.map((vec, index) => ({
+      content: vec.content,
+      metadata: { ...vec.metadata, documentId }, // Gắn documentId vào metadata
+      embedding: vec.embedding,
+      index,
+    })),
+  };
+
+  console.log(
+    ">>check vectorStore for document:",
+    documentId,
+    serializedVectorStore
+  );
+  return serializedVectorStore;
 };
 
-export const getRelevantChunks = async (query, k = 5, vectorStore) => {
-  if (!vectorStore) throw new Error("Vector store chưa được cung cấp");
+export const getRelevantChunks = async (
+  query,
+  k = 5,
+  vectorStores,
+  similarityThreshold = 0.7
+) => {
+  if (!vectorStores || vectorStores.length === 0)
+    throw new Error("Vector store chưa được cung cấp");
 
-  const retriever = vectorStore.asRetriever({ k });
-  const docs = await retriever.getRelevantDocuments(query);
-  return docs.map((doc) => doc.pageContent).join("\n\n");
+  // Kết hợp tất cả vector store để tìm kiếm
+  const embeddings = new GoogleGenerativeAIEmbeddings({ apiKey });
+  const combinedVectorStore = new MemoryVectorStore(embeddings);
+
+  for (const vectorStoreData of vectorStores) {
+    const documents = vectorStoreData.memoryVectors.map((vec) => ({
+      pageContent: vec.content,
+      metadata: vec.metadata,
+    }));
+    await combinedVectorStore.addDocuments(documents);
+  }
+
+  //---------cách cũ-----------------------------------------
+  // const retriever = combinedVectorStore.asRetriever({ k });
+  // const docs = await retriever.getRelevantDocuments(query);
+  // return docs.map((doc) => doc.pageContent).join("\n\n");
+  //---------cách cũ-----------------------------------------
+
+  //-------------cách có điểm số---------------------------------
+  const results = await combinedVectorStore.similaritySearchWithScore(query, k);
+  console.log(">>>check query with score:", results);
+  const relevantDocs = results
+    .filter(([_, score]) => score >= similarityThreshold)
+    .map(([doc, _]) => doc.pageContent);
+
+  console.log(
+    `>> Retrieved ${relevantDocs.length} relevant chunks for query: ${query}`
+  );
+  return relevantDocs.join("\n\n") || "Không tìm thấy nội dung liên quan.";
+  //-------------cách có điểm số---------------------------------
 };
 
 export const generateChatTitle = async (message) => {
