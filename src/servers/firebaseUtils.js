@@ -542,14 +542,27 @@ export const updateDocument = async (documentId, updateData) => {
     const existingData = docSnap.data();
     let vectorStore = existingData.vectorStore;
 
-    // Nếu cập nhật file mới, tạo lại vector store
+    // Nếu URL thay đổi, xóa file cũ và xây dựng lại vector store
     if (updateData.url && updateData.url !== existingData.url) {
-      const textContent = await readPdfFile(updateData.url);
-      vectorStore = await buildVectorStore(
+      // Xóa file cũ trong Firebase Storage
+      if (existingData.fileName) {
+        await deleteFileFromFirebase(existingData.fileName);
+      }
+
+      // Xây dựng lại vector store cho file mới
+      let textContent = await readPdfFile(updateData.url);
+      textContent = preprocessContent(textContent);
+      const vectorStoreResult = await buildVectorStore(
         textContent,
         documentId,
         import.meta.env.VITE_GOOGLE_API_KEY
-      ).memoryVectors;
+      );
+
+      // Kiểm tra xem vectorStoreResult có hợp lệ không
+      if (!vectorStoreResult || !vectorStoreResult.memoryVectors) {
+        throw new Error("Failed to build vector store: Invalid result");
+      }
+      vectorStore = vectorStoreResult.memoryVectors;
     }
 
     await setDoc(
@@ -558,6 +571,7 @@ export const updateDocument = async (documentId, updateData) => {
         name: updateData.name,
         subject: updateData.subject,
         url: updateData.url,
+        fileName: updateData.fileName,
         vectorStore,
       },
       { merge: true }

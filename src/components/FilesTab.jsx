@@ -74,6 +74,7 @@ export const FilesTab = () => {
       setFormData({
         name: currentDocument.name,
         subject: currentDocument.subject,
+        file: null,
       });
     }
   }, [openUpdateModal, currentDocument]);
@@ -209,7 +210,7 @@ export const FilesTab = () => {
     }
     try {
       setIsUpLoading(true);
-      const updateData = {
+      let updateData = {
         name: formData.name || currentDocument.name,
         subject: {
           ...formData.subject,
@@ -217,7 +218,15 @@ export const FilesTab = () => {
           name: formData.subject?.name || currentDocument.subject.name,
         },
         url: currentDocument.url,
+        fileName: currentDocument.fileName, // Thêm fileName
       };
+
+      // Nếu có file mới, upload file và cập nhật URL
+      if (formData.file) {
+        const fileUrl = await uploadFileToFirebase(formData.file);
+        updateData.url = fileUrl;
+        updateData.fileName = formData.file.name;
+      }
 
       await updateDocument(currentDocument.id, updateData);
       await fetchFiles();
@@ -379,6 +388,7 @@ export const FilesTab = () => {
           sx={{
             backgroundColor: "#00C853",
             "&:hover": { backgroundColor: "#089242" },
+            mr: 2,
           }}
         >
           Thêm tài liệu
@@ -536,6 +546,30 @@ export const FilesTab = () => {
                 ))}
               </Select>
             </FormControl>
+            <Button
+              variant="contained"
+              component="label"
+              startIcon={<CloudUploadIcon />}
+              fullWidth
+            >
+              Chọn file mới
+              <input
+                type="file"
+                hidden
+                onChange={handleFileUpload}
+                accept="application/pdf"
+              />
+            </Button>
+            {formData.file && (
+              <Typography variant="body2" sx={{ mt: 1, color: "#4CAF50" }}>
+                Đã chọn: {formData.file.name}
+              </Typography>
+            )}
+            {currentDocument?.fileName && !formData.file && (
+              <Typography variant="body2" sx={{ mt: 1, color: "#b3b3b3" }}>
+                File hiện tại: {currentDocument.fileName}
+              </Typography>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>

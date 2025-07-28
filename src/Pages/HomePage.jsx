@@ -284,16 +284,22 @@ export default function HomePage() {
                 \`\`\`
 
               - **Câu hỏi yêu cầu tài liệu** (có từ khóa: "gửi tài liệu", "gửi file", "gửi link", "muốn tài liệu"):
-                - Chỉ cung cấp liên kết tài liệu nếu câu hỏi nêu rõ môn học, loại tài liệu, hoặc nội dung cụ thể (ví dụ: "Gửi giáo trình môn Hệ điều hành") và có nội dung liên quan trong \`\`\`${contextFromChunks}\`\`\` hoặc \`\`\`${metadataOfFiles}\`\`\`.
-                - Sử dụng định dạng:
+                - **Bước 1**: Kiểm tra câu hỏi có chứa từ khóa yêu cầu tài liệu như "gửi tài liệu", "gửi file", "gửi link", "muốn tài liệu" hay không.
+                - **Bước 2**: Phân tích câu hỏi để xác định môn học, chuyên ngành, hoặc loại tài liệu cụ thể (ví dụ: "giáo trình", "bài giảng", "đề cương").
+                - **Bước 3**: Tìm kiếm trong \`\`\`${metadataOfFiles}\`\`\` để xác định tài liệu phù hợp dựa trên:
+                  - Môn học (so khớp với \`\`\`Môn học: Tên môn học\`\`\` trong metadata).
+                  - Chuyên ngành (so khớp với \`\`\`Chuyên ngành: Tên chuyên ngành\`\`\` hoặc "Cơ sở ngành").
+                  - Tên file hoặc tên gốc nếu người dùng nêu cụ thể.
+                - **Bước 4**: Trả về tối đa 3 tài liệu phù hợp với định dạng:
                   \`\`\`markdown
                   📎 Link tài liệu: [tên file - tên file upload](url)
                   \`\`\`
-                - Nếu \`\`\`${contextFromChunks}\`\`\` là "Không tìm thấy nội dung liên quan." hoặc không có tài liệu phù hợp, trả lời:
+                - **Bước 5**: Nếu không tìm thấy tài liệu phù hợp trong \`\`\`${metadataOfFiles}\`\`\`, trả lời:
                   \`\`\`markdown
                   📌 Hiện tại chưa có tài liệu phù hợp với câu hỏi của bạn.  
-                  Bạn có thể thử hỏi cụ thể hơn (ví dụ: "Giáo trình môn Hệ điều hành") để tôi hỗ trợ!
+                  Bạn có thể thử hỏi cụ thể hơn (ví dụ: "Giáo trình môn Hệ điều hành") hoặc tôi có thể giải thích khái niệm thay thế. Bạn muốn tiếp tục như thế nào?
                   \`\`\`
+                - **Lưu ý**: Không sử dụng \`\`\`${contextFromChunks}\`\`\` để tìm tài liệu trừ khi câu hỏi yêu cầu nội dung cụ thể trong tài liệu (ví dụ: "Tài liệu giải thích thuật toán Dijkstra").
 
               - **Khi không tìm thấy tài liệu phù hợp**:
                 - Trả lời:
