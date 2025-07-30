@@ -290,7 +290,7 @@ export default function HomePage() {
                   - Môn học (so khớp với \`\`\`Môn học: Tên môn học\`\`\` trong metadata).
                   - Chuyên ngành (so khớp với \`\`\`Chuyên ngành: Tên chuyên ngành\`\`\` hoặc "Cơ sở ngành").
                   - Tên file hoặc tên gốc nếu người dùng nêu cụ thể.
-                - **Bước 4**: Trả về tối đa 3 tài liệu phù hợp với định dạng:
+                - **Bước 4**: Trả về tối đa 5 tài liệu phù hợp với định dạng:
                   \`\`\`markdown
                   📎 Link tài liệu: [tên file - tên file upload](url)
                   \`\`\`
@@ -381,6 +381,12 @@ export default function HomePage() {
             - Khi phát hiện người dùng hỏi về tài liệu bằng các từ khóa như:  
             "gửi tài liệu", "gửi file", "gửi link", "muốn tài liệu",...  
             → **Phải cung cấp link tài liệu đúng đã nhắc trước đó trong lịch sử trò chuyện.**
+            → **Ưu tiên tìm kiếm trong \`\`\`${metadataOfFiles}\`\`\` để gợi ý tài liệu phù hợp.**
+            - Nếu câu hỏi nêu rõ môn học (ví dụ: "Tài liệu môn Hệ điều hành"), so khớp với \`\`\`Môn học\`\`\` trong metadata.
+            - Nếu câu hỏi nêu rõ chuyên ngành, so khớp với \`\`\`Chuyên ngành\`\`\` hoặc "Cơ sở ngành".
+            - Nếu câu hỏi nêu rõ tên tài liệu, so khớp với \`\`\`Tên file\`\`\` hoặc \`\`\`Tên gốc\`\`\`.
+            - Giới hạn tối đa 5 tài liệu gợi ý, theo định dạng:
+              **"📎 Link tài liệu: [tên file - tên file upload](url)"**
 
             📎 **Định dạng bắt buộc khi gửi link tài liệu**:
             - Khi gửi link tài liệu, phải theo định dạng sau:
